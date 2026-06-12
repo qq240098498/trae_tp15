@@ -1,16 +1,18 @@
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { BrowserRouter } from 'react-router-dom';
-import { Activity, Heart, MessageCircleHeart, Scale, Leaf, Sparkles } from 'lucide-react';
+import { Activity, Heart, MessageCircleHeart, Scale, Leaf, Sparkles, Dumbbell } from 'lucide-react';
 import WeightRecordPage from '@/pages/WeightRecordPage';
 import WeightChartPage from '@/pages/WeightChartPage';
 import HealthAssessmentPage from '@/pages/HealthAssessmentPage';
 import SocialFeedPage from '@/pages/SocialFeedPage';
+import GymPage from '@/pages/GymPage';
 import { useAppStore } from '@/store/useAppStore';
 
 const navItems = [
   { path: '/', label: '体重记录', icon: Scale, desc: '每日打卡' },
   { path: '/chart', label: '体重曲线', icon: Activity, desc: '趋势分析' },
   { path: '/health', label: '健康评估', icon: Heart, desc: 'BMI 分析' },
+  { path: '/gym', label: '附近健身房', icon: Dumbbell, desc: '健身预约' },
   { path: '/social', label: '朋友圈', icon: MessageCircleHeart, desc: '分享互动' },
 ];
 
@@ -83,13 +85,14 @@ function Layout() {
           <Route path="/" element={<WeightRecordPage />} />
           <Route path="/chart" element={<WeightChartPage />} />
           <Route path="/health" element={<HealthAssessmentPage />} />
+          <Route path="/gym" element={<GymPage />} />
           <Route path="/social" element={<SocialFeedPage />} />
           <Route path="*" element={<WeightRecordPage />} />
         </Routes>
       </main>
 
       <nav className="md:hidden fixed bottom-4 left-4 right-4 z-40 bg-white/95 backdrop-blur-xl border border-stone-200/70 rounded-3xl shadow-2xl shadow-stone-900/10 px-2 py-2">
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-5 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (

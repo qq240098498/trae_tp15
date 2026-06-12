@@ -1,13 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { SocialPost, UserProfile, WeightRecord, Comment } from '@/types';
-import { daysAgo, generateId, todayStr } from '@/utils';
+import { SocialPost, UserProfile, WeightRecord, Comment, Gym, PurchasedMembership, Booking, GymMembership } from '@/types';
+import { daysAgo, generateId, todayStr, formatDate } from '@/utils';
 
 interface AppState {
   currentUserId: string;
   userProfile: UserProfile;
   weightRecords: WeightRecord[];
   socialPosts: SocialPost[];
+  gyms: Gym[];
+  purchasedMemberships: PurchasedMembership[];
+  bookings: Booking[];
 
   addWeightRecord: (data: Omit<WeightRecord, 'id' | 'timestamp'>) => void;
   updateWeightRecord: (id: string, data: Partial<Omit<WeightRecord, 'id' | 'timestamp'>>) => void;
@@ -19,6 +22,12 @@ interface AppState {
   toggleLike: (postId: string) => void;
   addComment: (postId: string, content: string) => void;
   deletePost: (postId: string) => void;
+
+  purchaseMembership: (gymId: string, membership: GymMembership) => void;
+  cancelMembership: (membershipId: string) => void;
+  addBooking: (data: Omit<Booking, 'id' | 'createdAt' | 'status'>) => void;
+  cancelBooking: (bookingId: string) => void;
+  completeBooking: (bookingId: string) => void;
 
   resetToMock: () => void;
 }
@@ -126,6 +135,104 @@ const INITIAL_POSTS: SocialPost[] = [
   makePost(4, '周末和朋友去爬山了，虽然体重没怎么变，但整个人精神状态好多了！健康生活，快乐减重~', { images: ['https://images.unsplash.com/photo-1551632811-561732d1e306?w=600&h=400&fit=crop'] }, 14, []),
 ];
 
+const INITIAL_GYMS: Gym[] = [
+  {
+    id: 'gym-001',
+    name: '乐动健身·朝阳店',
+    address: '朝阳区建国路88号SOHO现代城B1层',
+    distance: 0.8,
+    rating: 4.8,
+    reviewCount: 326,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=modern+gym+interior+with+equipment+and+natural+lighting+bright+clean+fitness+center&image_size=landscape_16_9',
+    openTime: '06:00',
+    closeTime: '23:00',
+    facilities: ['力量区', '有氧区', '瑜伽室', '动感单车', '私教区', '淋浴间', '更衣室'],
+    lat: 39.908,
+    lng: 116.460,
+    memberships: [
+      { type: 'daily', name: '日卡', price: 39, days: 1, description: '单次入场体验', features: ['全场馆通练', '淋浴更衣', '免费储物'] },
+      { type: 'weekly', name: '周卡', price: 149, days: 7, description: '一周畅练', features: ['全场馆通练', '淋浴更衣', '免费储物', '团课体验2次'] },
+      { type: 'monthly', name: '月卡', price: 399, days: 30, description: '月度畅练', features: ['全场馆通练', '淋浴更衣', '免费储物', '团课无限次', '体测1次'] },
+    ],
+  },
+  {
+    id: 'gym-002',
+    name: '超级猩猩·国贸店',
+    address: '朝阳区国贸商城区域3层',
+    distance: 1.5,
+    rating: 4.6,
+    reviewCount: 218,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=stylish+fitness+studio+with+group+class+area+colorful+lighting+modern+gym&image_size=landscape_16_9',
+    openTime: '07:00',
+    closeTime: '22:00',
+    facilities: ['团课区', '瑜伽室', '动感单车', '淋浴间', '休息区'],
+    lat: 39.909,
+    lng: 116.459,
+    memberships: [
+      { type: 'daily', name: '日卡', price: 49, days: 1, description: '单次团课体验', features: ['团课1节', '淋浴更衣'] },
+      { type: 'weekly', name: '周卡', price: 179, days: 7, description: '一周团课畅享', features: ['团课无限次', '淋浴更衣', '免费储物'] },
+      { type: 'monthly', name: '月卡', price: 459, days: 30, description: '月度团课畅享', features: ['团课无限次', '淋浴更衣', '免费储物', '体测1次', '营养咨询'] },
+    ],
+  },
+  {
+    id: 'gym-003',
+    name: '一兆韦德·望京店',
+    address: '朝阳区望京SOHO塔2负1层',
+    distance: 2.3,
+    rating: 4.5,
+    reviewCount: 189,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=large+fitness+gym+with+swimming+pool+and+weight+training+area+luxury+health+club&image_size=landscape_16_9',
+    openTime: '06:00',
+    closeTime: '22:30',
+    facilities: ['力量区', '有氧区', '游泳池', '瑜伽室', '拳击区', '淋浴间', '桑拿房', '更衣室'],
+    lat: 39.992,
+    lng: 116.477,
+    memberships: [
+      { type: 'daily', name: '日卡', price: 59, days: 1, description: '含泳池体验', features: ['全场馆通练', '泳池使用', '淋浴更衣', '桑拿体验'] },
+      { type: 'weekly', name: '周卡', price: 199, days: 7, description: '一周畅练含泳池', features: ['全场馆通练', '泳池无限次', '淋浴更衣', '桑拿体验'] },
+      { type: 'monthly', name: '月卡', price: 529, days: 30, description: '尊享月卡', features: ['全场馆通练', '泳池无限次', '淋浴更衣', '桑拿无限次', '私教体验1次', '体测1次'] },
+    ],
+  },
+  {
+    id: 'gym-004',
+    name: 'Keep健身·三里屯店',
+    address: '朝阳区三里屯太古里南区B1',
+    distance: 3.1,
+    rating: 4.7,
+    reviewCount: 412,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=trendy+smart+gym+with+digital+equipment+and+neon+lights+modern+workout+space&image_size=landscape_16_9',
+    openTime: '06:30',
+    closeTime: '23:30',
+    facilities: ['智能器械区', '有氧区', '瑜伽室', '动感单车', '私教区', '淋浴间', '智能更衣柜'],
+    lat: 39.934,
+    lng: 116.454,
+    memberships: [
+      { type: 'daily', name: '日卡', price: 45, days: 1, description: '智能健身体验', features: ['全场馆通练', '智能器械', '淋浴更衣'] },
+      { type: 'weekly', name: '周卡', price: 169, days: 7, description: '智能健身周卡', features: ['全场馆通练', '智能器械', '淋浴更衣', 'AI训练计划'] },
+      { type: 'monthly', name: '月卡', price: 429, days: 30, description: '智能健身月卡', features: ['全场馆通练', '智能器械', '淋浴更衣', 'AI训练计划', '数据报告', '体测2次'] },
+    ],
+  },
+  {
+    id: 'gym-005',
+    name: '威尔仕·中关村店',
+    address: '海淀区中关村大街15号中关村广场B1',
+    distance: 5.2,
+    rating: 4.4,
+    reviewCount: 156,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=spacious+gym+with+basketball+court+and+weight+room+athletic+facility&image_size=landscape_16_9',
+    openTime: '06:00',
+    closeTime: '22:00',
+    facilities: ['力量区', '有氧区', '篮球场', '瑜伽室', '拳击区', '淋浴间', '更衣室', '停车场'],
+    lat: 39.981,
+    lng: 116.311,
+    memberships: [
+      { type: 'daily', name: '日卡', price: 35, days: 1, description: '经济实惠', features: ['全场馆通练', '淋浴更衣'] },
+      { type: 'weekly', name: '周卡', price: 129, days: 7, description: '性价比之选', features: ['全场馆通练', '淋浴更衣', '免费停车'] },
+      { type: 'monthly', name: '月卡', price: 349, days: 30, description: '超值月卡', features: ['全场馆通练', '淋浴更衣', '免费停车', '团课4次', '体测1次'] },
+    ],
+  },
+];
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -133,6 +240,9 @@ export const useAppStore = create<AppState>()(
       userProfile: MOCK_USER,
       weightRecords: INITIAL_RECORDS,
       socialPosts: INITIAL_POSTS,
+      gyms: INITIAL_GYMS,
+      purchasedMemberships: [],
+      bookings: [],
 
       addWeightRecord: (data) =>
         set((s) => ({
@@ -195,11 +305,66 @@ export const useAppStore = create<AppState>()(
       deletePost: (postId) =>
         set((s) => ({ socialPosts: s.socialPosts.filter((p) => p.id !== postId) })),
 
+      purchaseMembership: (gymId, membership) => {
+        const gym = get().gyms.find((g) => g.id === gymId);
+        if (!gym) return;
+        const now = Date.now();
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + membership.days);
+        const remainingDays = membership.days;
+        const pm: PurchasedMembership = {
+          id: generateId(),
+          gymId,
+          gymName: gym.name,
+          type: membership.type,
+          name: membership.name,
+          price: membership.price,
+          purchasedAt: now,
+          startDate: formatDate(startDate),
+          endDate: formatDate(endDate),
+          remainingDays,
+        };
+        set((s) => ({ purchasedMemberships: [...s.purchasedMemberships, pm] }));
+      },
+
+      cancelMembership: (membershipId) =>
+        set((s) => ({
+          purchasedMemberships: s.purchasedMemberships.filter((m) => m.id !== membershipId),
+        })),
+
+      addBooking: (data) => {
+        const booking: Booking = {
+          ...data,
+          id: generateId(),
+          createdAt: Date.now(),
+          status: 'confirmed',
+        };
+        set((s) => ({ bookings: [...s.bookings, booking] }));
+      },
+
+      cancelBooking: (bookingId) =>
+        set((s) => ({
+          bookings: s.bookings.map((b) =>
+            b.id === bookingId ? { ...b, status: 'cancelled' as const } : b,
+          ),
+        })),
+
+      completeBooking: (bookingId) =>
+        set((s) => ({
+          bookings: s.bookings.map((b) =>
+            b.id === bookingId ? { ...b, status: 'completed' as const } : b,
+          ),
+        })),
+
       resetToMock: () =>
         set({
           userProfile: MOCK_USER,
           weightRecords: INITIAL_RECORDS,
           socialPosts: INITIAL_POSTS,
+          gyms: INITIAL_GYMS,
+          purchasedMemberships: [],
+          bookings: [],
         }),
     }),
     { name: 'weight-app-v1' },

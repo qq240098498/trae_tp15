@@ -56,3 +56,59 @@ export interface BMIResult {
 }
 
 export type TimeRange = '7d' | '30d' | '90d' | 'all';
+
+export type MembershipType = 'daily' | 'weekly' | 'monthly';
+
+export interface GymMembership {
+  type: MembershipType;
+  name: string;
+  price: number;
+  days: number;
+  description: string;
+  features: string[];
+}
+
+export interface Gym {
+  id: string;
+  name: string;
+  address: string;
+  distance: number;
+  rating: number;
+  reviewCount: number;
+  image: string;
+  openTime: string;
+  closeTime: string;
+  facilities: string[];
+  memberships: GymMembership[];
+  lat: number;
+  lng: number;
+}
+
+export interface PurchasedMembership {
+  id: string;
+  gymId: string;
+  gymName: string;
+  type: MembershipType;
+  name: string;
+  price: number;
+  purchasedAt: number;
+  startDate: string;
+  endDate: string;
+  remainingDays: number;
+}
+
+export interface Booking {
+  id: string;
+  gymId: string;
+  gymName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  activity: string;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  createdAt: number;
+  membershipId?: string;
+}
+
+export type BookingActivity = '力量训练' | '有氧运动' | '瑜伽' | '动感单车' | '游泳' | '团课' | '自由训练';
+
