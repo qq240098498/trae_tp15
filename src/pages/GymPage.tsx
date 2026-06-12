@@ -98,6 +98,8 @@ export default function GymPage() {
 
   const handleBooking = () => {
     if (!selectedGym || bookingTimeSlot === null) return;
+    const hasActiveMembership = activeMemberships.some((m) => m.gymId === selectedGym.id);
+    if (!hasActiveMembership) return;
     const slot = TIME_SLOTS[bookingTimeSlot];
     addBooking({
       gymId: selectedGym.id,
@@ -246,15 +248,20 @@ export default function GymPage() {
                   </p>
                 </div>
               </div>
-              {hasActiveMembership && (
+              {hasActiveMembership ? (
                 <div className="mt-3 p-3 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center gap-2">
                   <BadgeCheck className="text-emerald-600" size={16} />
                   <span className="text-sm text-emerald-700 font-medium">已有有效会员卡，可免费预约</span>
                 </div>
+              ) : (
+                <div className="mt-3 p-3 rounded-2xl bg-amber-50 border border-amber-100 flex items-center gap-2">
+                  <CreditCard className="text-amber-600" size={16} />
+                  <span className="text-sm text-amber-700 font-medium">请先购买会员卡后再预约锻炼</span>
+                </div>
               )}
             </div>
 
-            <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+            <div className={`bg-white rounded-3xl shadow-sm border border-stone-100 p-5 ${!hasActiveMembership ? 'opacity-50 pointer-events-none' : ''}`}>
               <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
                 <CalendarDays size={18} className="text-emerald-500" />
                 选择日期
@@ -268,7 +275,7 @@ export default function GymPage() {
               />
             </div>
 
-            <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+            <div className={`bg-white rounded-3xl shadow-sm border border-stone-100 p-5 ${!hasActiveMembership ? 'opacity-50 pointer-events-none' : ''}`}>
               <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
                 <Timer size={18} className="text-emerald-500" />
                 选择时段
@@ -290,7 +297,7 @@ export default function GymPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+            <div className={`bg-white rounded-3xl shadow-sm border border-stone-100 p-5 ${!hasActiveMembership ? 'opacity-50 pointer-events-none' : ''}`}>
               <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
                 <Zap size={18} className="text-emerald-500" />
                 锻炼项目
@@ -312,13 +319,23 @@ export default function GymPage() {
               </div>
             </div>
 
-            <button
-              onClick={handleBooking}
-              disabled={bookingTimeSlot === null || !bookingDate}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-lg shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-            >
-              确认预约
-            </button>
+            {hasActiveMembership ? (
+              <button
+                onClick={handleBooking}
+                disabled={bookingTimeSlot === null || !bookingDate}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-lg shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              >
+                确认预约
+              </button>
+            ) : (
+              <button
+                onClick={() => setView('detail')}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-lg shadow-lg shadow-amber-500/25 hover:shadow-amber-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2"
+              >
+                <CreditCard size={20} />
+                购买会员卡后预约
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -326,6 +343,7 @@ export default function GymPage() {
   }
 
   if (view === 'detail' && selectedGym) {
+    const hasActiveMembership = activeMemberships.some((m) => m.gymId === selectedGym.id);
     return (
       <div className="animate-fadeIn">
         <BackHeader title="健身房详情" onBack={() => setView('list')} />
@@ -372,7 +390,7 @@ export default function GymPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-6">
+          <div data-memberships-section className="bg-white rounded-3xl shadow-sm border border-stone-100 p-6">
             <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
               <CreditCard size={18} className="text-emerald-500" />
               会员卡
@@ -414,13 +432,23 @@ export default function GymPage() {
             </div>
           </div>
 
-          <button
-            onClick={() => openBooking(selectedGym)}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-lg shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2"
-          >
-            <CalendarDays size={20} />
-            预约锻炼
-          </button>
+          {hasActiveMembership ? (
+            <button
+              onClick={() => openBooking(selectedGym)}
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-lg shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2"
+            >
+              <CalendarDays size={20} />
+              预约锻炼
+            </button>
+          ) : (
+            <button
+              onClick={() => document.querySelector('[data-memberships-section]')?.scrollIntoView({ behavior: 'smooth' })}
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-lg shadow-lg shadow-amber-500/25 hover:shadow-amber-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2"
+            >
+              <CreditCard size={20} />
+              购买会员卡后预约
+            </button>
+          )}
         </div>
       </div>
     );
@@ -675,19 +703,41 @@ export default function GymPage() {
                         </div>
                       </button>
                     ))}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openBooking(gym);
-                      }}
-                      className="flex-1 py-2.5 px-3 rounded-2xl text-center bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25 hover:shadow-emerald-500/35 transition"
-                    >
-                      <div className="text-xs font-bold flex items-center justify-center gap-1">
-                        <CalendarDays size={12} />
-                        预约锻炼
-                      </div>
-                      <div className="text-[10px] mt-0.5 text-white/80">选择时段</div>
-                    </button>
+                    {(() => {
+                      const hasGymMembership = activeMemberships.some((m) => m.gymId === gym.id);
+                      if (hasGymMembership) {
+                        return (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openBooking(gym);
+                            }}
+                            className="flex-1 py-2.5 px-3 rounded-2xl text-center bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25 hover:shadow-emerald-500/35 transition"
+                          >
+                            <div className="text-xs font-bold flex items-center justify-center gap-1">
+                              <CalendarDays size={12} />
+                              预约锻炼
+                            </div>
+                            <div className="text-[10px] mt-0.5 text-white/80">选择时段</div>
+                          </button>
+                        );
+                      }
+                      return (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDetail(gym);
+                          }}
+                          className="flex-1 py-2.5 px-3 rounded-2xl text-center bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 hover:shadow-amber-500/35 transition"
+                        >
+                          <div className="text-xs font-bold flex items-center justify-center gap-1">
+                            <CreditCard size={12} />
+                            先办卡
+                          </div>
+                          <div className="text-[10px] mt-0.5 text-white/80">购买后预约</div>
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
