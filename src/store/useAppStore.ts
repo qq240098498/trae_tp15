@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { SocialPost, UserProfile, WeightRecord, Comment, Gym, PurchasedMembership, Booking, GymMembership } from '@/types';
+import { SocialPost, UserProfile, WeightRecord, Comment, Gym, PurchasedMembership, Booking, GymMembership, Equipment, CartItem, Order } from '@/types';
 import { daysAgo, generateId, todayStr, formatDate } from '@/utils';
 
 interface AppState {
@@ -28,6 +28,23 @@ interface AppState {
   addBooking: (data: Omit<Booking, 'id' | 'createdAt' | 'status'>) => void;
   cancelBooking: (bookingId: string) => void;
   completeBooking: (bookingId: string) => void;
+
+  equipment: Equipment[];
+  cart: CartItem[];
+  orders: Order[];
+
+  addEquipment: (data: Omit<Equipment, 'id'>) => void;
+  updateEquipment: (id: string, data: Partial<Omit<Equipment, 'id'>>) => void;
+  deleteEquipment: (id: string) => void;
+
+  addToCart: (equipmentId: string, quantity?: number) => void;
+  removeFromCart: (equipmentId: string) => void;
+  updateCartQuantity: (equipmentId: string, quantity: number) => void;
+  clearCart: () => void;
+
+  createOrder: (address?: string, phone?: string, receiver?: string) => void;
+  cancelOrder: (orderId: string) => void;
+  completeOrder: (orderId: string) => void;
 
   resetToMock: () => void;
 }
@@ -233,6 +250,177 @@ const INITIAL_GYMS: Gym[] = [
   },
 ];
 
+const INITIAL_EQUIPMENT: Equipment[] = [
+  {
+    id: 'eq-001',
+    name: '智能跑步机 Pro',
+    category: '有氧器械',
+    price: 2999,
+    originalPrice: 3999,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=modern+treadmill+smart+fitness+equipment+home+gym+cardio+machine&image_size=square',
+    description: '高端智能跑步机，支持心率监测、多种训练模式、静音设计',
+    features: ['10.1寸高清触控屏', '18档电动坡度调节', '静音直流马达', '心率监测', '12种训练模式', '可折叠收纳'],
+    stock: 50,
+    rating: 4.8,
+    reviewCount: 128,
+    sales: 356,
+  },
+  {
+    id: 'eq-002',
+    name: '动感单车 S1',
+    category: '有氧器械',
+    price: 1599,
+    originalPrice: 1999,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=spin+bike+stationary+cycling+indoor+exercise+bike+fitness+equipment&image_size=square',
+    description: '静音磁控动感单车，模拟真实骑行体验',
+    features: ['磁控阻力系统', '静音皮带传动', '可调节座椅把手', '心率把手', 'LCD显示屏', '带滚轮移动'],
+    stock: 80,
+    rating: 4.6,
+    reviewCount: 256,
+    sales: 892,
+  },
+  {
+    id: 'eq-003',
+    name: '综合训练器',
+    category: '力量器械',
+    price: 5999,
+    originalPrice: 7999,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=multi+function+home+gym+strength+training+equipment+weight+machine&image_size=square',
+    description: '家用综合力量训练器，一机多用全身锻炼',
+    features: ['高低拉力器', '蝴蝶机', '腿部训练', '臂力训练', '重锤式设计', '承重200kg'],
+    stock: 20,
+    rating: 4.7,
+    reviewCount: 64,
+    sales: 128,
+  },
+  {
+    id: 'eq-004',
+    name: '哑铃套装 20kg',
+    category: '自由重量',
+    price: 399,
+    originalPrice: 499,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=adjustable+dumbbell+set+weight+training+fitness+equipment+home+gym&image_size=square',
+    description: '可调节哑铃套装，适合家用力量训练',
+    features: ['重量可调节', '包胶防滑', '安全锁扣', '配套支架', '一对装'],
+    stock: 200,
+    rating: 4.9,
+    reviewCount: 512,
+    sales: 2340,
+  },
+  {
+    id: 'eq-005',
+    name: '瑜伽垫加厚版',
+    category: '瑜伽拉伸',
+    price: 129,
+    originalPrice: 169,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=yoga+mat+premium+thick+exercise+mat+fitness+accessories&image_size=square',
+    description: '加厚防滑瑜伽垫，环保TPE材质',
+    features: ['15mm加厚', 'TPE环保材质', '双面防滑', '送绑带网包', '多色可选'],
+    stock: 500,
+    rating: 4.8,
+    reviewCount: 1024,
+    sales: 5680,
+  },
+  {
+    id: 'eq-006',
+    name: '弹力带套装',
+    category: '瑜伽拉伸',
+    price: 89,
+    originalPrice: 129,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=resistance+bands+set+fitness+elastic+bands+workout+equipment&image_size=square',
+    description: '5条不同阻力级别弹力带，全身训练',
+    features: ['5条不同阻力', '天然乳胶材质', '配门锚把手', '便携收纳袋', '训练指南'],
+    stock: 300,
+    rating: 4.7,
+    reviewCount: 768,
+    sales: 3200,
+  },
+  {
+    id: 'eq-007',
+    name: '乳清蛋白粉 5磅',
+    category: '补剂营养',
+    price: 299,
+    originalPrice: 359,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=whey+protein+powder+supplement+fitness+nutrition+jar&image_size=square',
+    description: '进口乳清蛋白粉，增肌健肌必备',
+    features: ['5磅大容量', '80%蛋白含量', '易吸收', '多种口味', '增肌配方'],
+    stock: 150,
+    rating: 4.6,
+    reviewCount: 856,
+    sales: 2100,
+  },
+  {
+    id: 'eq-008',
+    name: '健身手套',
+    category: '健身配件',
+    price: 59,
+    originalPrice: 79,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=weightlifting+gloves+fitness+workout+gloves+gym+accessories&image_size=square',
+    description: '防滑透气健身手套，保护双手',
+    features: ['透气网布', '硅胶防滑', '护腕设计', '多尺码可选', '耐磨耐用'],
+    stock: 400,
+    rating: 4.5,
+    reviewCount: 623,
+    sales: 1850,
+  },
+  {
+    id: 'eq-009',
+    name: '椭圆机 E3',
+    category: '有氧器械',
+    price: 2499,
+    originalPrice: 3299,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=elliptical+machine+cross+trainer+cardio+fitness+equipment+home+gym&image_size=square',
+    description: '家用椭圆机，低冲击全身有氧训练',
+    features: ['磁控静音系统', '16档阻力调节', '心率监测', 'LCD显示屏', '带滚轮移动'],
+    stock: 35,
+    rating: 4.7,
+    reviewCount: 189,
+    sales: 445,
+  },
+  {
+    id: 'eq-010',
+    name: '壶铃套装',
+    category: '自由重量',
+    price: 199,
+    originalPrice: 259,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=kettlebell+set+weight+training+fitness+equipment+colorful+kettlebells&image_size=square',
+    description: '彩色包胶壶铃，功能性训练必备',
+    features: ['4kg/8kg/12kg三件套', '环保包胶', '平底设计', '宽握把设计', '多色标识'],
+    stock: 120,
+    rating: 4.8,
+    reviewCount: 312,
+    sales: 780,
+  },
+  {
+    id: 'eq-011',
+    name: '泡沫轴',
+    category: '瑜伽拉伸',
+    price: 69,
+    originalPrice: 89,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=foam+roller+massage+roller+muscle+recovery+yoga+fitness+accessory&image_size=square',
+    description: '高密度泡沫轴，肌肉放松筋膜按摩',
+    features: ['高密度EVA材质', '凹凸纹理', '90cm长度', '轻便耐用', '多色可选'],
+    stock: 350,
+    rating: 4.6,
+    reviewCount: 456,
+    sales: 1560,
+  },
+  {
+    id: 'eq-012',
+    name: '运动护腰带',
+    category: '健身配件',
+    price: 89,
+    originalPrice: 119,
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=weightlifting+belt+gym+belt+fitness+waist+support+accessory&image_size=square',
+    description: '举重深蹲护腰带，保护腰部',
+    features: ['牛皮材质', '双排扣设计', '强力支撑', '透气舒适', '多尺码可选'],
+    stock: 180,
+    rating: 4.7,
+    reviewCount: 289,
+    sales: 920,
+  },
+];
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -243,6 +431,9 @@ export const useAppStore = create<AppState>()(
       gyms: INITIAL_GYMS,
       purchasedMemberships: [],
       bookings: [],
+      equipment: INITIAL_EQUIPMENT,
+      cart: [],
+      orders: [],
 
       addWeightRecord: (data) =>
         set((s) => ({
@@ -357,6 +548,110 @@ export const useAppStore = create<AppState>()(
           ),
         })),
 
+      addEquipment: (data) =>
+        set((s) => ({
+          equipment: [...s.equipment, { ...data, id: generateId() }],
+        })),
+
+      updateEquipment: (id, data) =>
+        set((s) => ({
+          equipment: s.equipment.map((e) =>
+            e.id === id ? { ...e, ...data } : e,
+          ),
+        })),
+
+      deleteEquipment: (id) =>
+        set((s) => ({
+          equipment: s.equipment.filter((e) => e.id !== id),
+          cart: s.cart.filter((c) => c.equipmentId !== id),
+        })),
+
+      addToCart: (equipmentId, quantity = 1) =>
+        set((s) => {
+          const existing = s.cart.find((c) => c.equipmentId === equipmentId);
+          if (existing) {
+            return {
+              cart: s.cart.map((c) =>
+                c.equipmentId === equipmentId
+                  ? { ...c, quantity: c.quantity + quantity }
+                  : c,
+              ),
+            };
+          }
+          return {
+            cart: [...s.cart, { equipmentId, quantity }],
+          };
+        }),
+
+      removeFromCart: (equipmentId) =>
+        set((s) => ({
+          cart: s.cart.filter((c) => c.equipmentId !== equipmentId),
+        })),
+
+      updateCartQuantity: (equipmentId, quantity) =>
+        set((s) => {
+          if (quantity <= 0) {
+            return {
+              cart: s.cart.filter((c) => c.equipmentId !== equipmentId),
+            };
+          }
+          return {
+            cart: s.cart.map((c) =>
+              c.equipmentId === equipmentId ? { ...c, quantity } : c,
+            ),
+          };
+        }),
+
+      clearCart: () => set({ cart: [] }),
+
+      createOrder: (address, phone, receiver) => {
+        const { cart, equipment } = get();
+        if (cart.length === 0) return;
+
+        const orderItems = cart
+          .map((c) => {
+            const eq = equipment.find((e) => e.id === c.equipmentId);
+            if (!eq) return null;
+            return { equipment: eq, quantity: c.quantity };
+          })
+          .filter((item): item is { equipment: Equipment; quantity: number } => item !== null);
+
+        const totalPrice = orderItems.reduce(
+          (sum, item) => sum + item.equipment.price * item.quantity,
+          0,
+        );
+
+        const order: Order = {
+          id: generateId(),
+          items: orderItems,
+          totalPrice,
+          status: 'paid',
+          createdAt: Date.now(),
+          address,
+          phone,
+          receiver,
+        };
+
+        set((s) => ({
+          orders: [order, ...s.orders],
+          cart: [],
+        }));
+      },
+
+      cancelOrder: (orderId) =>
+        set((s) => ({
+          orders: s.orders.map((o) =>
+            o.id === orderId ? { ...o, status: 'cancelled' as const } : o,
+          ),
+        })),
+
+      completeOrder: (orderId) =>
+        set((s) => ({
+          orders: s.orders.map((o) =>
+            o.id === orderId ? { ...o, status: 'completed' as const } : o,
+          ),
+        })),
+
       resetToMock: () =>
         set({
           userProfile: MOCK_USER,
@@ -365,6 +660,9 @@ export const useAppStore = create<AppState>()(
           gyms: INITIAL_GYMS,
           purchasedMemberships: [],
           bookings: [],
+          equipment: INITIAL_EQUIPMENT,
+          cart: [],
+          orders: [],
         }),
     }),
     { name: 'weight-app-v1' },
