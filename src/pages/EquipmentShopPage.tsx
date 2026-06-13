@@ -73,6 +73,8 @@ export default function EquipmentShopPage() {
     requestRefund,
     approveRefund,
     rejectRefund,
+    shipReturn,
+    confirmReturnDelivered,
     completeRefund,
   } = useAppStore();
 
@@ -95,6 +97,12 @@ export default function EquipmentShopPage() {
   const [reviewContent, setReviewContent] = useState('');
   const [refundReason, setRefundReason] = useState('');
   const [refundDescription, setRefundDescription] = useState('');
+  const [refundType, setRefundType] = useState<'refund_only' | 'return_refund'>('refund_only');
+  const [shippingCompany, setShippingCompany] = useState('');
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [returnAddress, setReturnAddress] = useState('');
+  const [returnReceiver, setReturnReceiver] = useState('');
+  const [returnPhone, setReturnPhone] = useState('');
   const [selectedRefund, setSelectedRefund] = useState<RefundRequest | null>(null);
   const [reviewFilter, setReviewFilter] = useState<'all' | 'good' | 'mid' | 'bad' | 'text'>('all');
 
@@ -1065,6 +1073,63 @@ export default function EquipmentShopPage() {
           {!existingRefund ? (
             <>
               <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+                <h3 className="font-bold text-stone-800 mb-4">退款类型</h3>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setRefundType('refund_only')}
+                    className={`w-full text-left p-4 rounded-2xl transition ${
+                      refundType === 'refund_only'
+                        ? 'bg-rose-50 border-2 border-rose-300'
+                        : 'bg-stone-50 border-2 border-stone-200 hover:bg-stone-100'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                        refundType === 'refund_only' ? 'border-rose-500' : 'border-stone-300'
+                      }`}>
+                        {refundType === 'refund_only' && <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-stone-800">仅退款</span>
+                          <CreditCard size={18} className="text-rose-500" />
+                        </div>
+                        <p className="text-xs text-stone-500 mt-1">
+                          商品已收到且无需退回，直接申请退款
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setRefundType('return_refund')}
+                    className={`w-full text-left p-4 rounded-2xl transition ${
+                      refundType === 'return_refund'
+                        ? 'bg-rose-50 border-2 border-rose-300'
+                        : 'bg-stone-50 border-2 border-stone-200 hover:bg-stone-100'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                        refundType === 'return_refund' ? 'border-rose-500' : 'border-stone-300'
+                      }`}>
+                        {refundType === 'return_refund' && <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-stone-800">退货退款</span>
+                          <Truck size={18} className="text-rose-500" />
+                        </div>
+                        <p className="text-xs text-stone-500 mt-1">
+                          将商品寄回商家，收到退货后退款
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
                 <h3 className="font-bold text-stone-800 mb-4">退款原因</h3>
                 <div className="space-y-2">
                   {['商品质量问题', '与描述不符', '收到商品损坏', '不想要了', '其他原因'].map((reason) => (
@@ -1100,13 +1165,13 @@ export default function EquipmentShopPage() {
               <button
                 onClick={() => {
                   if (!selectedOrder || !refundReason) return;
-                  requestRefund(selectedOrder.id, refundReason, refundDescription);
+                  requestRefund(selectedOrder.id, refundType, refundReason, refundDescription);
                   setView('orders');
                 }}
                 disabled={!refundReason}
                 className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold text-lg shadow-lg shadow-rose-500/25 hover:shadow-rose-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
               >
-                提交退款申请
+                提交{refundType === 'return_refund' ? '退货退款' : '退款'}申请
               </button>
             </>
           ) : (
@@ -1114,7 +1179,7 @@ export default function EquipmentShopPage() {
               <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
                 <Clock className="text-amber-500" size={28} />
               </div>
-              <h3 className="font-bold text-stone-800 mb-2">已提交退款申请</h3>
+              <h3 className="font-bold text-stone-800 mb-2">已提交{existingRefund.type === 'return_refund' ? '退货退款' : '退款'}申请</h3>
               <p className="text-sm text-stone-500">请等待审核，审核结果将及时通知您</p>
               <button
                 onClick={() => {
@@ -1123,7 +1188,7 @@ export default function EquipmentShopPage() {
                 }}
                 className="mt-4 px-6 py-3 rounded-2xl bg-rose-50 text-rose-600 font-medium hover:bg-rose-100 transition"
               >
-                查看退款进度
+                查看{existingRefund.type === 'return_refund' ? '退货退款' : '退款'}进度
               </button>
             </div>
           )}
@@ -1295,38 +1360,53 @@ export default function EquipmentShopPage() {
   }
 
   if (view === 'refundDetail' && selectedRefund) {
+    const isReturnRefund = selectedRefund.type === 'return_refund';
+    const hasShipped = selectedRefund.returnStatus === 'shipped';
+    const hasDelivered = selectedRefund.returnStatus === 'delivered';
+
     return (
       <div className="animate-fadeIn">
-        <BackHeader title="退款详情" onBack={() => setView('orders')} />
+        <BackHeader title={isReturnRefund ? '退货退款详情' : '退款详情'} onBack={() => setView('orders')} />
 
         <div className="space-y-4">
           <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-6">
             <div className="text-center mb-6">
               <div className={`w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center ${
                 selectedRefund.status === 'completed' ? 'bg-emerald-50' :
-                selectedRefund.status === 'approved' ? 'bg-sky-50' :
                 selectedRefund.status === 'rejected' ? 'bg-rose-50' :
+                isReturnRefund && hasShipped && !hasDelivered ? 'bg-sky-50' :
+                selectedRefund.status === 'approved' ? 'bg-sky-50' :
                 'bg-amber-50'
               }`}>
                 {selectedRefund.status === 'completed' ? <Check className="text-emerald-500" size={28} /> :
-                 selectedRefund.status === 'approved' ? <ThumbsUp className="text-sky-500" size={28} /> :
                  selectedRefund.status === 'rejected' ? <X className="text-rose-500" size={28} /> :
+                 isReturnRefund && hasShipped && !hasDelivered ? <Truck className="text-sky-500" size={28} /> :
+                 selectedRefund.status === 'approved' ? <ThumbsUp className="text-sky-500" size={28} /> :
                  <Clock className="text-amber-500" size={28} />}
               </div>
-              <h3 className="text-lg font-bold text-stone-800">{REFUND_STATUS_TEXT[selectedRefund.status]}</h3>
+              <h3 className="text-lg font-bold text-stone-800">
+                {selectedRefund.status === 'completed' ? '退款已完成' :
+                 selectedRefund.status === 'rejected' ? '退款申请已拒绝' :
+                 isReturnRefund && selectedRefund.status === 'approved' && !hasShipped ? '等待退货' :
+                 isReturnRefund && hasShipped && !hasDelivered ? '退货运输中' :
+                 isReturnRefund && hasDelivered ? '退货已签收，等待退款' :
+                 selectedRefund.status === 'approved' ? '退款已通过' :
+                 '审核中'}
+              </h3>
               <p className="text-sm text-stone-500 mt-1">
-                {selectedRefund.status === 'pending' && '我们将在1-2个工作日内审核您的退款申请'}
-                {selectedRefund.status === 'approved' && '退款已审核通过，正在处理退款'}
+                {selectedRefund.status === 'pending' && '我们将在1-2个工作日内审核您的申请'}
+                {selectedRefund.status === 'approved' && !isReturnRefund && '退款已审核通过，正在处理退款'}
+                {selectedRefund.status === 'approved' && isReturnRefund && !hasShipped && '请尽快将商品寄出，并填写物流信息'}
+                {hasShipped && !hasDelivered && '商品正在运输中，商家签收后将处理退款'}
+                {hasDelivered && '商家已签收退货，将在1-3个工作日内完成退款'}
                 {selectedRefund.status === 'rejected' && '退款申请未通过审核'}
                 {selectedRefund.status === 'completed' && '退款已完成，请查看您的账户'}
               </p>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  true ? 'bg-emerald-100' : 'bg-stone-100'
-                }`}>
+            <div className="space-y-0">
+              <div className="flex items-center gap-3 py-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
                   <Check size={14} className="text-emerald-600" />
                 </div>
                 <div className="flex-1">
@@ -1337,7 +1417,7 @@ export default function EquipmentShopPage() {
 
               <div className="ml-4 w-0.5 h-4 bg-stone-200" />
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 py-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                   selectedRefund.status !== 'pending' ? 'bg-emerald-100' : 'bg-amber-100'
                 }`}>
@@ -1357,9 +1437,73 @@ export default function EquipmentShopPage() {
                 </div>
               </div>
 
+              {isReturnRefund && (
+                <>
+                  <div className="ml-4 w-0.5 h-4 bg-stone-200" />
+
+                  <div className="flex items-center gap-3 py-2">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      hasShipped ? 'bg-emerald-100' :
+                      selectedRefund.status === 'approved' ? 'bg-amber-100' :
+                      'bg-stone-100'
+                    }`}>
+                      {hasShipped ? (
+                        <Check size={14} className="text-emerald-600" />
+                      ) : selectedRefund.status === 'approved' ? (
+                        <Truck size={14} className="text-amber-500" />
+                      ) : (
+                        <Truck size={14} className="text-stone-400" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-stone-800">
+                        {hasShipped ? '已寄出退货' : '寄出退货'}
+                      </div>
+                      <div className="text-xs text-stone-400">
+                        {selectedRefund.shippedAt
+                          ? new Date(selectedRefund.shippedAt).toLocaleString('zh-CN')
+                          : selectedRefund.status === 'approved'
+                          ? '审核通过后可填写物流信息'
+                          : '待处理'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="ml-4 w-0.5 h-4 bg-stone-200" />
+
+                  <div className="flex items-center gap-3 py-2">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      hasDelivered ? 'bg-emerald-100' :
+                      hasShipped ? 'bg-amber-100' :
+                      'bg-stone-100'
+                    }`}>
+                      {hasDelivered ? (
+                        <Check size={14} className="text-emerald-600" />
+                      ) : hasShipped ? (
+                        <Package size={14} className="text-amber-500" />
+                      ) : (
+                        <Package size={14} className="text-stone-400" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-stone-800">
+                        {hasDelivered ? '商家已签收' : '商家签收'}
+                      </div>
+                      <div className="text-xs text-stone-400">
+                        {selectedRefund.deliveredAt
+                          ? new Date(selectedRefund.deliveredAt).toLocaleString('zh-CN')
+                          : hasShipped
+                          ? '运输中...'
+                          : '待处理'}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div className="ml-4 w-0.5 h-4 bg-stone-200" />
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 py-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                   selectedRefund.status === 'completed' ? 'bg-emerald-100' : 'bg-stone-100'
                 }`}>
@@ -1372,9 +1516,9 @@ export default function EquipmentShopPage() {
                 <div className="flex-1">
                   <div className="text-sm font-medium text-stone-800">退款到账</div>
                   <div className="text-xs text-stone-400">
-                    {selectedRefund.status === 'completed' && selectedRefund.processedAt
-                      ? new Date(selectedRefund.processedAt).toLocaleString('zh-CN')
-                      : selectedRefund.status === 'approved'
+                    {selectedRefund.refundedAt
+                      ? new Date(selectedRefund.refundedAt).toLocaleString('zh-CN')
+                      : selectedRefund.status === 'approved' && (!isReturnRefund || hasDelivered)
                       ? '处理中，预计1-3个工作日'
                       : '待处理'}
                   </div>
@@ -1383,9 +1527,135 @@ export default function EquipmentShopPage() {
             </div>
           </div>
 
+          {isReturnRefund && selectedRefund.status === 'approved' && selectedRefund.returnAddress && (
+            <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+              <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
+                <Truck size={18} className="text-emerald-500" />
+                退货地址
+              </h3>
+              <div className="space-y-2 text-sm bg-stone-50 rounded-2xl p-4">
+                {selectedRefund.returnReceiver && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-stone-500">收件人：</span>
+                    <span className="text-stone-800 font-medium">{selectedRefund.returnReceiver}</span>
+                    {selectedRefund.returnPhone && (
+                      <span className="text-stone-600">{selectedRefund.returnPhone}</span>
+                    )}
+                  </div>
+                )}
+                <div className="flex items-start gap-2">
+                  <span className="text-stone-500 flex-shrink-0">详细地址：</span>
+                  <span className="text-stone-800">{selectedRefund.returnAddress}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isReturnRefund && selectedRefund.status === 'approved' && !hasShipped && (
+            <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+              <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
+                <Package size={18} className="text-sky-500" />
+                填写退货物流
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-stone-700 mb-1.5">物流公司</label>
+                  <select
+                    value={shippingCompany}
+                    onChange={(e) => setShippingCompany(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl bg-stone-50 border border-stone-200 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
+                  >
+                    <option value="">请选择物流公司</option>
+                    <option value="顺丰速运">顺丰速运</option>
+                    <option value="圆通速递">圆通速递</option>
+                    <option value="中通快递">中通快递</option>
+                    <option value="申通快递">申通快递</option>
+                    <option value="韵达快递">韵达快递</option>
+                    <option value="百世快递">百世快递</option>
+                    <option value="中国邮政">中国邮政</option>
+                    <option value="京东物流">京东物流</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-stone-700 mb-1.5">物流单号</label>
+                  <input
+                    type="text"
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    placeholder="请输入物流单号"
+                    className="w-full px-4 py-3 rounded-2xl bg-stone-50 border border-stone-200 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    if (!shippingCompany || !trackingNumber) return;
+                    shipReturn(selectedRefund.id, shippingCompany, trackingNumber);
+                    setSelectedRefund({
+                      ...selectedRefund,
+                      returnStatus: 'shipped',
+                      shippingCompany,
+                      trackingNumber,
+                      shippedAt: Date.now(),
+                    });
+                  }}
+                  disabled={!shippingCompany || !trackingNumber}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold shadow-lg shadow-sky-500/25 hover:shadow-sky-500/35 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <Truck size={18} />
+                  确认寄出
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isReturnRefund && hasShipped && (
+            <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+              <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
+                <Truck size={18} className="text-sky-500" />
+                物流信息
+              </h3>
+              <div className="space-y-3 text-sm bg-stone-50 rounded-2xl p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500">物流公司</span>
+                  <span className="text-stone-800 font-medium">{selectedRefund.shippingCompany}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500">物流单号</span>
+                  <span className="text-stone-800 font-mono">{selectedRefund.trackingNumber}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500">寄出时间</span>
+                  <span className="text-stone-700">{selectedRefund.shippedAt && new Date(selectedRefund.shippedAt).toLocaleString('zh-CN')}</span>
+                </div>
+              </div>
+              {!hasDelivered && (
+                <button
+                  onClick={() => {
+                    confirmReturnDelivered(selectedRefund.id);
+                    setSelectedRefund({
+                      ...selectedRefund,
+                      returnStatus: 'delivered',
+                      deliveredAt: Date.now(),
+                    });
+                  }}
+                  className="w-full mt-4 py-3 rounded-2xl bg-emerald-50 text-emerald-600 font-medium hover:bg-emerald-100 transition flex items-center justify-center gap-2"
+                >
+                  <Check size={16} />
+                  确认商家已签收
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
             <h3 className="font-bold text-stone-800 mb-4">退款信息</h3>
             <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-stone-500">退款类型</span>
+                <span className={`font-medium ${isReturnRefund ? 'text-sky-600' : 'text-rose-600'}`}>
+                  {isReturnRefund ? '退货退款' : '仅退款'}
+                </span>
+              </div>
               <div className="flex items-center justify-between">
                 <span className="text-stone-500">退款原因</span>
                 <span className="text-stone-700">{selectedRefund.reason}</span>
@@ -1403,45 +1673,103 @@ export default function EquipmentShopPage() {
             </div>
           </div>
 
-          {(selectedRefund.status === 'pending' || selectedRefund.status === 'approved') && (
-            <div className="flex gap-3">
-              {selectedRefund.status === 'pending' && (
-                <>
-                  <button
-                    onClick={() => {
-                      approveRefund(selectedRefund.id);
-                      setSelectedRefund({ ...selectedRefund, status: 'approved' });
-                    }}
-                    className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg shadow-emerald-500/25 transition flex items-center justify-center gap-2"
-                  >
-                    <ThumbsUp size={18} />
-                    通过审核
-                  </button>
-                  <button
-                    onClick={() => {
-                      rejectRefund(selectedRefund.id);
-                      setSelectedRefund({ ...selectedRefund, status: 'rejected' });
-                    }}
-                    className="flex-1 py-3.5 rounded-2xl bg-stone-100 text-stone-600 font-medium hover:bg-stone-200 transition flex items-center justify-center gap-2"
-                  >
-                    <X size={18} />
-                    拒绝退款
-                  </button>
-                </>
+          {selectedRefund.status === 'pending' && (
+            <div className="space-y-3">
+              {isReturnRefund && (
+                <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+                  <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
+                    <Truck size={18} className="text-emerald-500" />
+                    设置退货地址（审核通过）
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">收件人</label>
+                      <input
+                        type="text"
+                        value={returnReceiver}
+                        onChange={(e) => setReturnReceiver(e.target.value)}
+                        placeholder="请输入收件人姓名"
+                        className="w-full px-4 py-3 rounded-2xl bg-stone-50 border border-stone-200 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">联系电话</label>
+                      <input
+                        type="text"
+                        value={returnPhone}
+                        onChange={(e) => setReturnPhone(e.target.value)}
+                        placeholder="请输入联系电话"
+                        className="w-full px-4 py-3 rounded-2xl bg-stone-50 border border-stone-200 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">退货地址</label>
+                      <input
+                        type="text"
+                        value={returnAddress}
+                        onChange={(e) => setReturnAddress(e.target.value)}
+                        placeholder="请输入详细退货地址"
+                        className="w-full px-4 py-3 rounded-2xl bg-stone-50 border border-stone-200 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
               )}
-              {selectedRefund.status === 'approved' && (
+              <div className="flex gap-3">
                 <button
                   onClick={() => {
-                    completeRefund(selectedRefund.id);
-                    setSelectedRefund({ ...selectedRefund, status: 'completed' });
+                    if (isReturnRefund && (!returnAddress || !returnReceiver)) return;
+                    approveRefund(
+                      selectedRefund.id,
+                      isReturnRefund ? returnAddress : undefined,
+                      isReturnRefund ? returnReceiver : undefined,
+                      isReturnRefund ? returnPhone : undefined,
+                    );
+                    setSelectedRefund({
+                      ...selectedRefund,
+                      status: 'approved',
+                      processedAt: Date.now(),
+                      returnAddress: isReturnRefund ? returnAddress : undefined,
+                      returnReceiver: isReturnRefund ? returnReceiver : undefined,
+                      returnPhone: isReturnRefund ? returnPhone : undefined,
+                    });
                   }}
-                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg shadow-emerald-500/25 transition flex items-center justify-center gap-2"
+                  disabled={isReturnRefund && (!returnAddress || !returnReceiver)}
+                  className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg shadow-emerald-500/25 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <CreditCard size={18} />
-                  确认退款到账
+                  <ThumbsUp size={18} />
+                  通过审核
                 </button>
-              )}
+                <button
+                  onClick={() => {
+                    rejectRefund(selectedRefund.id);
+                    setSelectedRefund({ ...selectedRefund, status: 'rejected', processedAt: Date.now() });
+                  }}
+                  className="flex-1 py-3.5 rounded-2xl bg-stone-100 text-stone-600 font-medium hover:bg-stone-200 transition flex items-center justify-center gap-2"
+                >
+                  <X size={18} />
+                  拒绝退款
+                </button>
+              </div>
             </div>
+          )}
+
+          {selectedRefund.status === 'approved' && (!isReturnRefund || hasDelivered) && (
+            <button
+              onClick={() => {
+                completeRefund(selectedRefund.id);
+                setSelectedRefund({
+                  ...selectedRefund,
+                  status: 'completed',
+                  processedAt: Date.now(),
+                  refundedAt: Date.now(),
+                });
+              }}
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg shadow-emerald-500/25 transition flex items-center justify-center gap-2"
+            >
+              <CreditCard size={18} />
+              确认退款到账
+            </button>
           )}
         </div>
       </div>

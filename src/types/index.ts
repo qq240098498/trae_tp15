@@ -142,17 +142,29 @@ export interface Review {
   timestamp: number;
 }
 
+export type RefundType = 'refund_only' | 'return_refund';
+export type ReturnStatus = 'not_started' | 'shipped' | 'delivered';
 export type RefundStatus = 'pending' | 'approved' | 'rejected' | 'completed';
 
 export interface RefundRequest {
   id: string;
   orderId: string;
+  type: RefundType;
   reason: string;
   description: string;
   status: RefundStatus;
   refundAmount: number;
   createdAt: number;
   processedAt?: number;
+  returnStatus?: ReturnStatus;
+  returnAddress?: string;
+  returnReceiver?: string;
+  returnPhone?: string;
+  shippingCompany?: string;
+  trackingNumber?: string;
+  shippedAt?: number;
+  deliveredAt?: number;
+  refundedAt?: number;
 }
 
 export interface CartItem {

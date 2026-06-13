@@ -49,9 +49,11 @@ interface AppState {
   completeOrder: (orderId: string) => void;
 
   addReview: (orderId: string, equipmentId: string, rating: number, content: string, images?: string[]) => void;
-  requestRefund: (orderId: string, reason: string, description: string) => void;
-  approveRefund: (refundId: string) => void;
+  requestRefund: (orderId: string, type: 'refund_only' | 'return_refund', reason: string, description: string) => void;
+  approveRefund: (refundId: string, returnAddress?: string, returnReceiver?: string, returnPhone?: string) => void;
   rejectRefund: (refundId: string) => void;
+  shipReturn: (refundId: string, shippingCompany: string, trackingNumber: string) => void;
+  confirmReturnDelivered: (refundId: string) => void;
   completeRefund: (refundId: string) => void;
 
   resetToMock: () => void;
@@ -692,17 +694,19 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      requestRefund: (orderId, reason, description) => {
+      requestRefund: (orderId, type, reason, description) => {
         const order = get().orders.find((o) => o.id === orderId);
         if (!order) return;
         const refund: RefundRequest = {
           id: generateId(),
           orderId,
+          type,
           reason,
           description,
           status: 'pending',
           refundAmount: order.totalPrice,
           createdAt: Date.now(),
+          returnStatus: type === 'return_refund' ? 'not_started' : undefined,
         };
         set((s) => ({
           refundRequests: [...s.refundRequests, refund],
@@ -712,10 +716,17 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      approveRefund: (refundId) =>
+      approveRefund: (refundId, returnAddress, returnReceiver, returnPhone) =>
         set((s) => ({
           refundRequests: s.refundRequests.map((r) =>
-            r.id === refundId ? { ...r, status: 'approved' as const, processedAt: Date.now() } : r,
+            r.id === refundId ? {
+              ...r,
+              status: 'approved' as const,
+              processedAt: Date.now(),
+              returnAddress,
+              returnReceiver,
+              returnPhone,
+            } : r,
           ),
         })),
 
@@ -726,12 +737,41 @@ export const useAppStore = create<AppState>()(
           ),
         })),
 
+      shipReturn: (refundId, shippingCompany, trackingNumber) =>
+        set((s) => ({
+          refundRequests: s.refundRequests.map((r) =>
+            r.id === refundId ? {
+              ...r,
+              returnStatus: 'shipped' as const,
+              shippingCompany,
+              trackingNumber,
+              shippedAt: Date.now(),
+            } : r,
+          ),
+        })),
+
+      confirmReturnDelivered: (refundId) =>
+        set((s) => ({
+          refundRequests: s.refundRequests.map((r) =>
+            r.id === refundId ? {
+              ...r,
+              returnStatus: 'delivered' as const,
+              deliveredAt: Date.now(),
+            } : r,
+          ),
+        })),
+
       completeRefund: (refundId) => {
         const refund = get().refundRequests.find((r) => r.id === refundId);
         if (!refund) return;
         set((s) => ({
           refundRequests: s.refundRequests.map((r) =>
-            r.id === refundId ? { ...r, status: 'completed' as const, processedAt: Date.now() } : r,
+            r.id === refundId ? {
+              ...r,
+              status: 'completed' as const,
+              processedAt: Date.now(),
+              refundedAt: Date.now(),
+            } : r,
           ),
           orders: s.orders.map((o) =>
             o.id === refund.orderId ? { ...o, status: 'cancelled' as const } : o,
