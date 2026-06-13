@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { SocialPost, UserProfile, WeightRecord, Comment, Gym, PurchasedMembership, Booking, GymMembership, Equipment, CartItem, Order, Review, RefundRequest } from '@/types';
+import { SocialPost, UserProfile, WeightRecord, Comment, Gym, PurchasedMembership, Booking, GymMembership, Equipment, CartItem, Order, Review, RefundRequest, MealRecord, MealType, MealFood } from '@/types';
 import { daysAgo, generateId, todayStr, formatDate } from '@/utils';
 
 interface AppState {
@@ -34,6 +34,7 @@ interface AppState {
   orders: Order[];
   reviews: Review[];
   refundRequests: RefundRequest[];
+  mealRecords: MealRecord[];
 
   addEquipment: (data: Omit<Equipment, 'id'>) => void;
   updateEquipment: (id: string, data: Partial<Omit<Equipment, 'id'>>) => void;
@@ -55,6 +56,12 @@ interface AppState {
   shipReturn: (refundId: string, shippingCompany: string, trackingNumber: string) => void;
   confirmReturnDelivered: (refundId: string) => void;
   completeRefund: (refundId: string) => void;
+
+  addMealRecord: (data: { date: string; mealType: MealType; foods: MealFood[]; note?: string; image?: string }) => void;
+  updateMealRecord: (id: string, data: Partial<{ mealType: MealType; foods: MealFood[]; note?: string; image?: string }>) => void;
+  deleteMealRecord: (id: string) => void;
+  getMealsByDate: (date: string) => MealRecord[];
+  getDailySummary: (date: string) => { totalCalories: number; totalProtein: number; totalCarbs: number; totalFat: number; mealCount: number };
 
   resetToMock: () => void;
 }
@@ -431,6 +438,116 @@ const INITIAL_EQUIPMENT: Equipment[] = [
   },
 ];
 
+const INITIAL_MEALS: MealRecord[] = [
+  {
+    id: generateId(),
+    date: todayStr(),
+    mealType: 'breakfast',
+    foods: [
+      { foodId: 'f-egg', foodName: '煮鸡蛋', quantity: 2, calories: 140, protein: 12, carbs: 2, fat: 10 },
+      { foodId: 'f-milk', foodName: '纯牛奶', quantity: 1, calories: 120, protein: 6, carbs: 10, fat: 6 },
+      { foodId: 'f-bread', foodName: '全麦面包', quantity: 2, calories: 180, protein: 8, carbs: 30, fat: 3 },
+    ],
+    totalCalories: 440,
+    totalProtein: 26,
+    totalCarbs: 42,
+    totalFat: 19,
+    note: '健康早餐开启一天',
+    timestamp: Date.now() - 3600000 * 4,
+  },
+  {
+    id: generateId(),
+    date: todayStr(),
+    mealType: 'lunch',
+    foods: [
+      { foodId: 'f-rice', foodName: '米饭', quantity: 1, calories: 200, protein: 4, carbs: 45, fat: 1 },
+      { foodId: 'f-chicken', foodName: '鸡胸肉', quantity: 1.5, calories: 270, protein: 54, carbs: 0, fat: 6 },
+      { foodId: 'f-broccoli', foodName: '西兰花', quantity: 1, calories: 50, protein: 4, carbs: 10, fat: 0.5 },
+      { foodId: 'f-tofu', foodName: '豆腐', quantity: 1, calories: 80, protein: 8, carbs: 4, fat: 5 },
+    ],
+    totalCalories: 600,
+    totalProtein: 70,
+    totalCarbs: 59,
+    totalFat: 12.5,
+    note: '高蛋白午餐',
+    timestamp: Date.now() - 3600000 * 1,
+  },
+  {
+    id: generateId(),
+    date: daysAgo(1),
+    mealType: 'breakfast',
+    foods: [
+      { foodId: 'f-oatmeal', foodName: '燕麦片', quantity: 1, calories: 150, protein: 5, carbs: 27, fat: 3 },
+      { foodId: 'f-egg', foodName: '煮鸡蛋', quantity: 1, calories: 70, protein: 6, carbs: 1, fat: 5 },
+      { foodId: 'f-banana', foodName: '香蕉', quantity: 1, calories: 105, protein: 1, carbs: 27, fat: 0 },
+    ],
+    totalCalories: 325,
+    totalProtein: 12,
+    totalCarbs: 55,
+    totalFat: 8,
+    timestamp: Date.now() - 86400000 - 3600000 * 4,
+  },
+  {
+    id: generateId(),
+    date: daysAgo(1),
+    mealType: 'lunch',
+    foods: [
+      { foodId: 'f-noodle', foodName: '牛肉面', quantity: 1, calories: 550, protein: 25, carbs: 65, fat: 20 },
+      { foodId: 'f-egg', foodName: '卤蛋', quantity: 1, calories: 70, protein: 6, carbs: 1, fat: 5 },
+    ],
+    totalCalories: 620,
+    totalProtein: 31,
+    totalCarbs: 66,
+    totalFat: 25,
+    note: '外面吃的牛肉面',
+    timestamp: Date.now() - 86400000 - 3600000 * 1,
+  },
+  {
+    id: generateId(),
+    date: daysAgo(1),
+    mealType: 'dinner',
+    foods: [
+      { foodId: 'f-fish', foodName: '清蒸鱼', quantity: 1, calories: 200, protein: 40, carbs: 0, fat: 5 },
+      { foodId: 'f-vegetable', foodName: '炒青菜', quantity: 1, calories: 80, protein: 3, carbs: 8, fat: 5 },
+      { foodId: 'f-rice', foodName: '米饭', quantity: 0.5, calories: 100, protein: 2, carbs: 22, fat: 0.5 },
+    ],
+    totalCalories: 380,
+    totalProtein: 45,
+    totalCarbs: 30,
+    totalFat: 10.5,
+    timestamp: Date.now() - 86400000 + 3600000 * 3,
+  },
+  {
+    id: generateId(),
+    date: daysAgo(2),
+    mealType: 'breakfast',
+    foods: [
+      { foodId: 'f-soymilk', foodName: '豆浆', quantity: 1, calories: 80, protein: 4, carbs: 10, fat: 3 },
+      { foodId: 'f-bun', foodName: '包子', quantity: 2, calories: 300, protein: 10, carbs: 45, fat: 8 },
+    ],
+    totalCalories: 380,
+    totalProtein: 14,
+    totalCarbs: 55,
+    totalFat: 11,
+    timestamp: Date.now() - 2 * 86400000 - 3600000 * 4,
+  },
+  {
+    id: generateId(),
+    date: daysAgo(2),
+    mealType: 'snack',
+    foods: [
+      { foodId: 'f-apple', foodName: '苹果', quantity: 1, calories: 95, protein: 0, carbs: 25, fat: 0 },
+      { foodId: 'f-nuts', foodName: '混合坚果', quantity: 0.5, calories: 150, protein: 4, carbs: 8, fat: 12 },
+    ],
+    totalCalories: 245,
+    totalProtein: 4,
+    totalCarbs: 33,
+    totalFat: 12,
+    note: '下午茶',
+    timestamp: Date.now() - 2 * 86400000 - 3600000 * 6,
+  },
+];
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -446,6 +563,7 @@ export const useAppStore = create<AppState>()(
       orders: [],
       reviews: [],
       refundRequests: [],
+      mealRecords: INITIAL_MEALS,
 
       addWeightRecord: (data) =>
         set((s) => ({
@@ -779,6 +897,76 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      addMealRecord: (data) => {
+        const totalCalories = data.foods.reduce((sum, f) => sum + f.calories * f.quantity, 0);
+        const totalProtein = data.foods.reduce((sum, f) => sum + f.protein * f.quantity, 0);
+        const totalCarbs = data.foods.reduce((sum, f) => sum + f.carbs * f.quantity, 0);
+        const totalFat = data.foods.reduce((sum, f) => sum + f.fat * f.quantity, 0);
+
+        const meal: MealRecord = {
+          id: generateId(),
+          date: data.date,
+          mealType: data.mealType,
+          foods: data.foods,
+          totalCalories: Number(totalCalories.toFixed(1)),
+          totalProtein: Number(totalProtein.toFixed(1)),
+          totalCarbs: Number(totalCarbs.toFixed(1)),
+          totalFat: Number(totalFat.toFixed(1)),
+          note: data.note,
+          image: data.image,
+          timestamp: Date.now(),
+        };
+
+        set((s) => ({
+          mealRecords: [...s.mealRecords, meal].sort((a, b) => a.timestamp - b.timestamp),
+        }));
+      },
+
+      updateMealRecord: (id, data) =>
+        set((s) => ({
+          mealRecords: s.mealRecords.map((r) => {
+            if (r.id !== id) return r;
+            const foods = data.foods || r.foods;
+            const totalCalories = foods.reduce((sum, f) => sum + f.calories * f.quantity, 0);
+            const totalProtein = foods.reduce((sum, f) => sum + f.protein * f.quantity, 0);
+            const totalCarbs = foods.reduce((sum, f) => sum + f.carbs * f.quantity, 0);
+            const totalFat = foods.reduce((sum, f) => sum + f.fat * f.quantity, 0);
+            return {
+              ...r,
+              ...data,
+              foods,
+              totalCalories: Number(totalCalories.toFixed(1)),
+              totalProtein: Number(totalProtein.toFixed(1)),
+              totalCarbs: Number(totalCarbs.toFixed(1)),
+              totalFat: Number(totalFat.toFixed(1)),
+            };
+          }),
+        })),
+
+      deleteMealRecord: (id) =>
+        set((s) => ({ mealRecords: s.mealRecords.filter((r) => r.id !== id) })),
+
+      getMealsByDate: (date) => {
+        return get().mealRecords
+          .filter((r) => r.date === date)
+          .sort((a, b) => a.timestamp - b.timestamp);
+      },
+
+      getDailySummary: (date) => {
+        const meals = get().mealRecords.filter((r) => r.date === date);
+        const totalCalories = meals.reduce((sum, m) => sum + m.totalCalories, 0);
+        const totalProtein = meals.reduce((sum, m) => sum + m.totalProtein, 0);
+        const totalCarbs = meals.reduce((sum, m) => sum + m.totalCarbs, 0);
+        const totalFat = meals.reduce((sum, m) => sum + m.totalFat, 0);
+        return {
+          totalCalories: Number(totalCalories.toFixed(1)),
+          totalProtein: Number(totalProtein.toFixed(1)),
+          totalCarbs: Number(totalCarbs.toFixed(1)),
+          totalFat: Number(totalFat.toFixed(1)),
+          mealCount: meals.length,
+        };
+      },
+
       resetToMock: () =>
         set({
           userProfile: MOCK_USER,
@@ -792,6 +980,7 @@ export const useAppStore = create<AppState>()(
           orders: [],
           reviews: [],
           refundRequests: [],
+          mealRecords: INITIAL_MEALS,
         }),
     }),
     { name: 'weight-app-v1' },

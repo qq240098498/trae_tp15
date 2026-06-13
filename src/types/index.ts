@@ -167,6 +167,54 @@ export interface RefundRequest {
   refundedAt?: number;
 }
 
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+export interface FoodItem {
+  id: string;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  servingSize: string;
+  servingGrams: number;
+  category: string;
+}
+
+export interface MealFood {
+  foodId: string;
+  foodName: string;
+  quantity: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface MealRecord {
+  id: string;
+  date: string;
+  mealType: MealType;
+  foods: MealFood[];
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  note?: string;
+  image?: string;
+  timestamp: number;
+}
+
+export interface DailyDietSummary {
+  date: string;
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  mealCount: number;
+  healthStatus: 'excellent' | 'good' | 'fair' | 'poor';
+}
+
 export interface CartItem {
   equipmentId: string;
   quantity: number;
