@@ -1,16 +1,18 @@
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { BrowserRouter } from 'react-router-dom';
-import { Activity, Heart, MessageCircleHeart, Scale, Leaf, Sparkles, Dumbbell, ShoppingCart } from 'lucide-react';
+import { Activity, Heart, MessageCircleHeart, Scale, Leaf, Sparkles, Dumbbell, ShoppingCart, UtensilsCrossed } from 'lucide-react';
 import WeightRecordPage from '@/pages/WeightRecordPage';
 import WeightChartPage from '@/pages/WeightChartPage';
 import HealthAssessmentPage from '@/pages/HealthAssessmentPage';
 import SocialFeedPage from '@/pages/SocialFeedPage';
 import GymPage from '@/pages/GymPage';
 import EquipmentShopPage from '@/pages/EquipmentShopPage';
+import DietPage from '@/pages/DietPage';
 import { useAppStore } from '@/store/useAppStore';
 
 const navItems = [
   { path: '/', label: '体重记录', icon: Scale, desc: '每日打卡' },
+  { path: '/diet', label: '饮食记录', icon: UtensilsCrossed, desc: '卡路里追踪' },
   { path: '/chart', label: '体重曲线', icon: Activity, desc: '趋势分析' },
   { path: '/health', label: '健康评估', icon: Heart, desc: 'BMI 分析' },
   { path: '/gym', label: '附近健身房', icon: Dumbbell, desc: '健身预约' },
@@ -85,6 +87,7 @@ function Layout() {
       <main className="container max-w-6xl py-6 md:py-8 pb-28 md:pb-12">
         <Routes key={location.pathname}>
           <Route path="/" element={<WeightRecordPage />} />
+          <Route path="/diet" element={<DietPage />} />
           <Route path="/chart" element={<WeightChartPage />} />
           <Route path="/health" element={<HealthAssessmentPage />} />
           <Route path="/gym" element={<GymPage />} />
@@ -95,7 +98,7 @@ function Layout() {
       </main>
 
       <nav className="md:hidden fixed bottom-4 left-4 right-4 z-40 bg-white/95 backdrop-blur-xl border border-stone-200/70 rounded-3xl shadow-2xl shadow-stone-900/10 px-2 py-2">
-        <div className="grid grid-cols-6 gap-1">
+        <div className="grid grid-cols-7 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
