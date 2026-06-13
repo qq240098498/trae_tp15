@@ -74,6 +74,7 @@ export default function EquipmentShopPage() {
 
   const [manageMode, setManageMode] = useState<'add' | 'edit'>('add');
   const [editingEquipment, setEditingEquipment] = useState<Partial<Equipment> | null>(null);
+  const [cartMessage, setCartMessage] = useState<string | null>(null);
 
   const filteredEquipment = useMemo(() => {
     let result = [...equipment];
@@ -132,6 +133,13 @@ export default function EquipmentShopPage() {
 
   const handleAddToCart = (eq: Equipment, quantity = 1) => {
     addToCart(eq.id, quantity);
+    setCartMessage(`已将「${eq.name}」加入购物车`);
+    setTimeout(() => setCartMessage(null), 2000);
+  };
+
+  const handleBuyNow = (eq: Equipment) => {
+    addToCart(eq.id, 1);
+    setView('checkout');
   };
 
   const handleCheckout = () => {
@@ -319,10 +327,7 @@ export default function EquipmentShopPage() {
               加入购物车
             </button>
             <button
-              onClick={() => {
-                handleAddToCart(selectedEquipment);
-                setView('checkout');
-              }}
+              onClick={() => handleBuyNow(selectedEquipment)}
               className="flex-1 py-4 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold text-lg shadow-lg shadow-rose-500/25 hover:shadow-rose-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all"
             >
               立即购买
@@ -760,7 +765,15 @@ export default function EquipmentShopPage() {
   }
 
   return (
-    <div className="animate-fadeIn">
+    <div className="animate-fadeIn relative">
+      {cartMessage && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-fadeIn">
+          <div className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-emerald-600 text-white shadow-xl shadow-emerald-500/30">
+            <Check size={18} />
+            <span className="font-medium text-sm">{cartMessage}</span>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-extrabold text-stone-800">健身器材商城</h1>
@@ -889,6 +902,7 @@ export default function EquipmentShopPage() {
               equipment={eq}
               onView={() => openDetail(eq)}
               onAddToCart={() => handleAddToCart(eq)}
+              onBuyNow={() => handleBuyNow(eq)}
               onEdit={() => openEditEquipment(eq)}
               onDelete={() => handleDeleteEquipment(eq.id)}
             />
@@ -903,12 +917,14 @@ function EquipmentCard({
   equipment,
   onView,
   onAddToCart,
+  onBuyNow,
   onEdit,
   onDelete,
 }: {
   equipment: Equipment;
   onView: () => void;
   onAddToCart: () => void;
+  onBuyNow: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -968,13 +984,27 @@ function EquipmentCard({
             <span className="text-[10px] text-stone-400 line-through">¥{equipment.originalPrice}</span>
           )}
         </div>
-        <button
-          onClick={onAddToCart}
-          className="w-full mt-3 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-medium shadow-sm shadow-emerald-500/20 hover:shadow-emerald-500/30 transition flex items-center justify-center gap-1"
-        >
-          <ShoppingCart size={14} />
-          加入购物车
-        </button>
+        <div className="flex gap-1.5 mt-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddToCart();
+            }}
+            className="flex-1 py-2 rounded-xl bg-stone-50 border border-stone-200 text-stone-700 text-xs font-medium hover:bg-stone-100 transition flex items-center justify-center gap-1"
+          >
+            <ShoppingCart size={12} />
+            加入购物车
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onBuyNow();
+            }}
+            className="flex-1 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 text-white text-xs font-medium shadow-sm shadow-rose-500/20 hover:shadow-rose-500/30 transition flex items-center justify-center gap-1"
+          >
+            立即购买
+          </button>
+        </div>
       </div>
     </div>
   );
