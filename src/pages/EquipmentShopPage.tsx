@@ -19,11 +19,18 @@ import {
   ShieldCheck,
   Pencil,
   PlusCircle,
+  MessageSquare,
+  RotateCcw,
+  AlertCircle,
+  Clock,
+  ThumbsUp,
+  Image as ImageIcon,
+  Send,
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
-import { Equipment, EquipmentCategory, Order } from '@/types';
+import { Equipment, EquipmentCategory, Order, Review, RefundRequest } from '@/types';
 
-type View = 'list' | 'detail' | 'cart' | 'orders' | 'checkout' | 'checkoutSuccess' | 'manage';
+type View = 'list' | 'detail' | 'cart' | 'orders' | 'checkout' | 'checkoutSuccess' | 'manage' | 'review' | 'refund' | 'orderDetail' | 'refundDetail';
 
 const CATEGORIES: EquipmentCategory[] = ['有氧器械', '力量器械', '自由重量', '瑜伽拉伸', '补剂营养', '健身配件'];
 
@@ -50,6 +57,8 @@ export default function EquipmentShopPage() {
     equipment,
     cart,
     orders,
+    reviews,
+    refundRequests,
     addToCart,
     removeFromCart,
     updateCartQuantity,
@@ -60,6 +69,11 @@ export default function EquipmentShopPage() {
     deleteEquipment,
     cancelOrder,
     completeOrder,
+    addReview,
+    requestRefund,
+    approveRefund,
+    rejectRefund,
+    completeRefund,
   } = useAppStore();
 
   const [view, setView] = useState<View>('list');
@@ -75,6 +89,13 @@ export default function EquipmentShopPage() {
   const [manageMode, setManageMode] = useState<'add' | 'edit'>('add');
   const [editingEquipment, setEditingEquipment] = useState<Partial<Equipment> | null>(null);
   const [cartMessage, setCartMessage] = useState<string | null>(null);
+
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewContent, setReviewContent] = useState('');
+  const [refundReason, setRefundReason] = useState('');
+  const [refundDescription, setRefundDescription] = useState('');
+  const [selectedRefund, setSelectedRefund] = useState<RefundRequest | null>(null);
 
   const filteredEquipment = useMemo(() => {
     let result = [...equipment];
@@ -306,6 +327,33 @@ export default function EquipmentShopPage() {
                 <div className="text-xs font-medium text-stone-700">7天无理由</div>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-6">
+            <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
+              <MessageSquare size={18} className="text-amber-500" />
+              用户评价
+              <span className="text-sm font-normal text-stone-400">({reviews.filter(r => r.equipmentId === selectedEquipment.id).length})</span>
+            </h3>
+            {reviews.filter(r => r.equipmentId === selectedEquipment.id).length === 0 ? (
+              <div className="text-center py-6">
+                <MessageSquare className="text-stone-200 mx-auto mb-2" size={32} />
+                <p className="text-sm text-stone-400">暂无评价，购买后即可评价</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {reviews.filter(r => r.equipmentId === selectedEquipment.id).slice(0, 5).map(review => (
+                  <ReviewItem key={review.id} review={review} />
+                ))}
+                {reviews.filter(r => r.equipmentId === selectedEquipment.id).length > 5 && (
+                  <div className="text-center">
+                    <button className="text-sm text-emerald-600 font-medium hover:underline">
+                      查看全部 {reviews.filter(r => r.equipmentId === selectedEquipment.id).length} 条评价
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 sticky bottom-4 bg-white/95 backdrop-blur-xl rounded-3xl p-3 border border-stone-200 shadow-lg">
@@ -570,9 +618,30 @@ export default function EquipmentShopPage() {
               <OrderCard
                 key={order.id}
                 order={order}
+                reviews={reviews}
+                refundRequests={refundRequests}
                 onCancel={cancelOrder}
                 onComplete={completeOrder}
-                onViewDetail={() => {}}
+                onReview={(o) => {
+                  setSelectedOrder(o);
+                  setReviewRating(5);
+                  setReviewContent('');
+                  setView('review');
+                }}
+                onRefund={(o) => {
+                  setSelectedOrder(o);
+                  setRefundReason('');
+                  setRefundDescription('');
+                  setView('refund');
+                }}
+                onViewDetail={(o) => {
+                  setSelectedOrder(o);
+                  setView('orderDetail');
+                }}
+                onViewRefund={(r) => {
+                  setSelectedRefund(r);
+                  setView('refundDetail');
+                }}
               />
             ))}
           </div>
@@ -759,6 +828,570 @@ export default function EquipmentShopPage() {
               保存
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'review' && selectedOrder) {
+    const hasReviewedItems = selectedOrder.items.filter(
+      (item) => !(selectedOrder.reviewIds || []).some(rid => {
+        const r = reviews.find(rv => rv.id === rid);
+        return r && r.equipmentId === item.equipment.id;
+      })
+    );
+
+    return (
+      <div className="animate-fadeIn">
+        <BackHeader title="评价订单" onBack={() => setView('orders')} />
+
+        <div className="space-y-4">
+          <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+            <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
+              <Package size={18} className="text-emerald-500" />
+              订单商品
+            </h3>
+            <div className="space-y-3">
+              {selectedOrder.items.map((item) => (
+                <div key={item.equipment.id} className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-stone-50 flex-shrink-0">
+                    <img
+                      src={item.equipment.image}
+                      alt={item.equipment.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-stone-800 text-sm truncate">{item.equipment.name}</div>
+                    <div className="text-xs text-stone-500">x{item.quantity}</div>
+                  </div>
+                  {(selectedOrder.reviewIds || []).some(rid => {
+                    const r = reviews.find(rv => rv.id === rid);
+                    return r && r.equipmentId === item.equipment.id;
+                  }) && (
+                    <span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-medium">
+                      已评价
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {hasReviewedItems.length > 0 && (
+            <>
+              <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+                <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
+                  <Star size={18} className="text-amber-500" />
+                  商品评分
+                </h3>
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setReviewRating(star)}
+                      className="transition-transform hover:scale-110"
+                    >
+                      <Star
+                        size={32}
+                        className={star <= reviewRating ? 'text-amber-400' : 'text-stone-200'}
+                        fill={star <= reviewRating ? 'currentColor' : 'none'}
+                      />
+                    </button>
+                  ))}
+                  <span className="ml-3 text-lg font-bold text-amber-600">{reviewRating}.0</span>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+                <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
+                  <Pencil size={18} className="text-emerald-500" />
+                  评价内容
+                </h3>
+                <textarea
+                  value={reviewContent}
+                  onChange={(e) => setReviewContent(e.target.value)}
+                  placeholder="分享你的使用体验，帮助其他用户做出选择..."
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-2xl bg-stone-50 border border-stone-200 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm resize-none"
+                />
+                <div className="flex items-center justify-between mt-3">
+                  <div className="flex items-center gap-1 text-stone-400">
+                    <ImageIcon size={14} />
+                    <span className="text-xs">添加图片（暂不支持）</span>
+                  </div>
+                  <span className={`text-xs ${reviewContent.length > 500 ? 'text-rose-500' : 'text-stone-400'}`}>
+                    {reviewContent.length}/500
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  if (!selectedOrder || !reviewContent.trim()) return;
+                  const itemToReview = hasReviewedItems[0];
+                  addReview(selectedOrder.id, itemToReview.equipment.id, reviewRating, reviewContent.trim());
+                  setView('orders');
+                }}
+                disabled={!reviewContent.trim() || reviewContent.length > 500}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-lg shadow-lg shadow-amber-500/25 hover:shadow-amber-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
+              >
+                <Send size={20} />
+                提交评价
+              </button>
+            </>
+          )}
+
+          {hasReviewedItems.length === 0 && (
+            <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
+                <Check className="text-emerald-500" size={28} />
+              </div>
+              <h3 className="font-bold text-stone-800 mb-2">全部商品已评价</h3>
+              <p className="text-sm text-stone-500 mb-4">感谢您的评价！</p>
+              <button
+                onClick={() => setView('orders')}
+                className="px-6 py-3 rounded-2xl bg-stone-100 text-stone-700 font-medium hover:bg-stone-200 transition"
+              >
+                返回订单
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'refund' && selectedOrder) {
+    const existingRefund = refundRequests.find(r => r.orderId === selectedOrder.id);
+
+    return (
+      <div className="animate-fadeIn">
+        <BackHeader title="申请退款" onBack={() => setView('orders')} />
+
+        <div className="space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+            <AlertCircle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-700">退款须知</p>
+              <ul className="text-xs text-amber-600 mt-1 space-y-1">
+                <li>• 签收后7天内可申请无理由退货</li>
+                <li>• 退款审核通过后1-3个工作日原路退回</li>
+                <li>• 商品需保持原样，不影响二次销售</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+            <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
+              <Package size={18} className="text-emerald-500" />
+              退款商品
+            </h3>
+            <div className="space-y-3">
+              {selectedOrder.items.map((item) => (
+                <div key={item.equipment.id} className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-stone-50 flex-shrink-0">
+                    <img
+                      src={item.equipment.image}
+                      alt={item.equipment.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-stone-800 text-sm truncate">{item.equipment.name}</div>
+                    <div className="text-xs text-stone-500">x{item.quantity}</div>
+                  </div>
+                  <span className="font-bold text-rose-600">¥{item.equipment.price * item.quantity}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-stone-100 mt-4 pt-4 flex items-center justify-between">
+              <span className="font-medium text-stone-700">退款金额</span>
+              <span className="text-2xl font-extrabold text-rose-600">¥{selectedOrder.totalPrice}</span>
+            </div>
+          </div>
+
+          {!existingRefund ? (
+            <>
+              <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+                <h3 className="font-bold text-stone-800 mb-4">退款原因</h3>
+                <div className="space-y-2">
+                  {['商品质量问题', '与描述不符', '收到商品损坏', '不想要了', '其他原因'].map((reason) => (
+                    <button
+                      key={reason}
+                      onClick={() => setRefundReason(reason)}
+                      className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition ${
+                        refundReason === reason
+                          ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                          : 'bg-stone-50 text-stone-700 border border-stone-200 hover:bg-stone-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>{reason}</span>
+                        {refundReason === reason && <Check size={16} className="text-rose-500" />}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+                <h3 className="font-bold text-stone-800 mb-3">补充说明</h3>
+                <textarea
+                  value={refundDescription}
+                  onChange={(e) => setRefundDescription(e.target.value)}
+                  placeholder="请详细描述退款原因，以便我们更快处理..."
+                  rows={3}
+                  className="w-full px-4 py-3 rounded-2xl bg-stone-50 border border-stone-200 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm resize-none"
+                />
+              </div>
+
+              <button
+                onClick={() => {
+                  if (!selectedOrder || !refundReason) return;
+                  requestRefund(selectedOrder.id, refundReason, refundDescription);
+                  setView('orders');
+                }}
+                disabled={!refundReason}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold text-lg shadow-lg shadow-rose-500/25 hover:shadow-rose-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              >
+                提交退款申请
+              </button>
+            </>
+          ) : (
+            <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
+                <Clock className="text-amber-500" size={28} />
+              </div>
+              <h3 className="font-bold text-stone-800 mb-2">已提交退款申请</h3>
+              <p className="text-sm text-stone-500">请等待审核，审核结果将及时通知您</p>
+              <button
+                onClick={() => {
+                  setSelectedRefund(existingRefund);
+                  setView('refundDetail');
+                }}
+                className="mt-4 px-6 py-3 rounded-2xl bg-rose-50 text-rose-600 font-medium hover:bg-rose-100 transition"
+              >
+                查看退款进度
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'orderDetail' && selectedOrder) {
+    const orderReviews = reviews.filter(r => (selectedOrder.reviewIds || []).includes(r.id));
+    const orderRefund = refundRequests.find(r => r.orderId === selectedOrder.id);
+
+    return (
+      <div className="animate-fadeIn">
+        <BackHeader title="订单详情" onBack={() => setView('orders')} />
+
+        <div className="space-y-4">
+          <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-stone-800 flex items-center gap-2">
+                <Package size={18} className="text-emerald-500" />
+                订单信息
+              </h3>
+              <span className={`px-3 py-1 rounded-xl text-xs font-semibold ${ORDER_STATUS_COLOR[selectedOrder.status]}`}>
+                {ORDER_STATUS_TEXT[selectedOrder.status]}
+              </span>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-stone-500">订单编号</span>
+                <span className="text-stone-700 font-mono">{selectedOrder.id.slice(0, 16)}...</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-stone-500">下单时间</span>
+                <span className="text-stone-700">{new Date(selectedOrder.createdAt).toLocaleString('zh-CN')}</span>
+              </div>
+              {selectedOrder.receiver && (
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500">收货人</span>
+                  <span className="text-stone-700">{selectedOrder.receiver}</span>
+                </div>
+              )}
+              {selectedOrder.phone && (
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500">联系电话</span>
+                  <span className="text-stone-700">{selectedOrder.phone}</span>
+                </div>
+              )}
+              {selectedOrder.address && (
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500">收货地址</span>
+                  <span className="text-stone-700 text-right max-w-[200px]">{selectedOrder.address}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+            <h3 className="font-bold text-stone-800 mb-4">商品清单</h3>
+            <div className="space-y-3">
+              {selectedOrder.items.map((item) => (
+                <div key={item.equipment.id} className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-stone-50 flex-shrink-0">
+                    <img
+                      src={item.equipment.image}
+                      alt={item.equipment.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-stone-800 text-sm truncate">{item.equipment.name}</div>
+                    <div className="text-xs text-stone-500">x{item.quantity} · ¥{item.equipment.price}/件</div>
+                  </div>
+                  <span className="font-bold text-stone-700">¥{item.equipment.price * item.quantity}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-stone-100 mt-4 pt-4 flex items-center justify-between">
+              <span className="font-medium text-stone-700">订单金额</span>
+              <span className="text-xl font-extrabold text-rose-600">¥{selectedOrder.totalPrice}</span>
+            </div>
+          </div>
+
+          {orderReviews.length > 0 && (
+            <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+              <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
+                <MessageSquare size={18} className="text-amber-500" />
+                我的评价
+              </h3>
+              <div className="space-y-4">
+                {orderReviews.map(review => (
+                  <ReviewItem key={review.id} review={review} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {orderRefund && (
+            <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+              <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
+                <RotateCcw size={18} className="text-rose-500" />
+                退款信息
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500">退款原因</span>
+                  <span className="text-stone-700">{orderRefund.reason}</span>
+                </div>
+                {orderRefund.description && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-stone-500">补充说明</span>
+                    <span className="text-stone-700">{orderRefund.description}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500">退款金额</span>
+                  <span className="font-bold text-rose-600">¥{orderRefund.refundAmount}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500">退款状态</span>
+                  <span className={`font-medium ${REFUND_STATUS_COLOR[orderRefund.status]}`}>
+                    {REFUND_STATUS_TEXT[orderRefund.status]}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedRefund(orderRefund);
+                  setView('refundDetail');
+                }}
+                className="w-full mt-4 py-2.5 rounded-xl bg-rose-50 text-rose-600 text-sm font-medium hover:bg-rose-100 transition"
+              >
+                查看退款详情
+              </button>
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            {selectedOrder.status === 'completed' && !(selectedOrder.reviewIds || []).length && (
+              <button
+                onClick={() => {
+                  setReviewRating(5);
+                  setReviewContent('');
+                  setView('review');
+                }}
+                className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold shadow-lg shadow-amber-500/25 hover:shadow-amber-500/35 transition flex items-center justify-center gap-2"
+              >
+                <Star size={18} />
+                去评价
+              </button>
+            )}
+            {(selectedOrder.status === 'paid' || selectedOrder.status === 'shipped' || selectedOrder.status === 'completed') && !orderRefund && (
+              <button
+                onClick={() => {
+                  setRefundReason('');
+                  setRefundDescription('');
+                  setView('refund');
+                }}
+                className="flex-1 py-3.5 rounded-2xl bg-stone-100 text-stone-600 font-medium hover:bg-stone-200 transition flex items-center justify-center gap-2"
+              >
+                <RotateCcw size={18} />
+                申请退款
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'refundDetail' && selectedRefund) {
+    return (
+      <div className="animate-fadeIn">
+        <BackHeader title="退款详情" onBack={() => setView('orders')} />
+
+        <div className="space-y-4">
+          <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-6">
+            <div className="text-center mb-6">
+              <div className={`w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center ${
+                selectedRefund.status === 'completed' ? 'bg-emerald-50' :
+                selectedRefund.status === 'approved' ? 'bg-sky-50' :
+                selectedRefund.status === 'rejected' ? 'bg-rose-50' :
+                'bg-amber-50'
+              }`}>
+                {selectedRefund.status === 'completed' ? <Check className="text-emerald-500" size={28} /> :
+                 selectedRefund.status === 'approved' ? <ThumbsUp className="text-sky-500" size={28} /> :
+                 selectedRefund.status === 'rejected' ? <X className="text-rose-500" size={28} /> :
+                 <Clock className="text-amber-500" size={28} />}
+              </div>
+              <h3 className="text-lg font-bold text-stone-800">{REFUND_STATUS_TEXT[selectedRefund.status]}</h3>
+              <p className="text-sm text-stone-500 mt-1">
+                {selectedRefund.status === 'pending' && '我们将在1-2个工作日内审核您的退款申请'}
+                {selectedRefund.status === 'approved' && '退款已审核通过，正在处理退款'}
+                {selectedRefund.status === 'rejected' && '退款申请未通过审核'}
+                {selectedRefund.status === 'completed' && '退款已完成，请查看您的账户'}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  true ? 'bg-emerald-100' : 'bg-stone-100'
+                }`}>
+                  <Check size={14} className="text-emerald-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-stone-800">提交申请</div>
+                  <div className="text-xs text-stone-400">{new Date(selectedRefund.createdAt).toLocaleString('zh-CN')}</div>
+                </div>
+              </div>
+
+              <div className="ml-4 w-0.5 h-4 bg-stone-200" />
+
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  selectedRefund.status !== 'pending' ? 'bg-emerald-100' : 'bg-amber-100'
+                }`}>
+                  {selectedRefund.status !== 'pending' ? (
+                    <Check size={14} className="text-emerald-600" />
+                  ) : (
+                    <Clock size={14} className="text-amber-500" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-stone-800">审核处理</div>
+                  <div className="text-xs text-stone-400">
+                    {selectedRefund.processedAt
+                      ? new Date(selectedRefund.processedAt).toLocaleString('zh-CN')
+                      : '等待审核中...'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="ml-4 w-0.5 h-4 bg-stone-200" />
+
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  selectedRefund.status === 'completed' ? 'bg-emerald-100' : 'bg-stone-100'
+                }`}>
+                  {selectedRefund.status === 'completed' ? (
+                    <Check size={14} className="text-emerald-600" />
+                  ) : (
+                    <CreditCard size={14} className="text-stone-400" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-stone-800">退款到账</div>
+                  <div className="text-xs text-stone-400">
+                    {selectedRefund.status === 'completed' && selectedRefund.processedAt
+                      ? new Date(selectedRefund.processedAt).toLocaleString('zh-CN')
+                      : selectedRefund.status === 'approved'
+                      ? '处理中，预计1-3个工作日'
+                      : '待处理'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-5">
+            <h3 className="font-bold text-stone-800 mb-4">退款信息</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-stone-500">退款原因</span>
+                <span className="text-stone-700">{selectedRefund.reason}</span>
+              </div>
+              {selectedRefund.description && (
+                <div className="flex items-start justify-between">
+                  <span className="text-stone-500 flex-shrink-0">补充说明</span>
+                  <span className="text-stone-700 text-right max-w-[200px]">{selectedRefund.description}</span>
+                </div>
+              )}
+              <div className="border-t border-stone-100 pt-3 flex items-center justify-between">
+                <span className="text-stone-700 font-medium">退款金额</span>
+                <span className="text-xl font-extrabold text-rose-600">¥{selectedRefund.refundAmount}</span>
+              </div>
+            </div>
+          </div>
+
+          {(selectedRefund.status === 'pending' || selectedRefund.status === 'approved') && (
+            <div className="flex gap-3">
+              {selectedRefund.status === 'pending' && (
+                <>
+                  <button
+                    onClick={() => {
+                      approveRefund(selectedRefund.id);
+                      setSelectedRefund({ ...selectedRefund, status: 'approved' });
+                    }}
+                    className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg shadow-emerald-500/25 transition flex items-center justify-center gap-2"
+                  >
+                    <ThumbsUp size={18} />
+                    通过审核
+                  </button>
+                  <button
+                    onClick={() => {
+                      rejectRefund(selectedRefund.id);
+                      setSelectedRefund({ ...selectedRefund, status: 'rejected' });
+                    }}
+                    className="flex-1 py-3.5 rounded-2xl bg-stone-100 text-stone-600 font-medium hover:bg-stone-200 transition flex items-center justify-center gap-2"
+                  >
+                    <X size={18} />
+                    拒绝退款
+                  </button>
+                </>
+              )}
+              {selectedRefund.status === 'approved' && (
+                <button
+                  onClick={() => {
+                    completeRefund(selectedRefund.id);
+                    setSelectedRefund({ ...selectedRefund, status: 'completed' });
+                  }}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg shadow-emerald-500/25 transition flex items-center justify-center gap-2"
+                >
+                  <CreditCard size={18} />
+                  确认退款到账
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1012,38 +1645,36 @@ function EquipmentCard({
 
 function OrderCard({
   order,
+  reviews,
+  refundRequests,
   onCancel,
   onComplete,
+  onReview,
+  onRefund,
+  onViewDetail,
+  onViewRefund,
 }: {
   order: Order;
+  reviews: Review[];
+  refundRequests: RefundRequest[];
   onCancel: (id: string) => void;
   onComplete: (id: string) => void;
-  onViewDetail: () => void;
+  onReview: (order: Order) => void;
+  onRefund: (order: Order) => void;
+  onViewDetail: (order: Order) => void;
+  onViewRefund: (refund: RefundRequest) => void;
 }) {
-  const statusText: Record<string, string> = {
-    pending: '待支付',
-    paid: '已支付',
-    shipped: '已发货',
-    completed: '已完成',
-    cancelled: '已取消',
-  };
-
-  const statusColor: Record<string, string> = {
-    pending: 'bg-amber-50 text-amber-600',
-    paid: 'bg-sky-50 text-sky-600',
-    shipped: 'bg-violet-50 text-violet-600',
-    completed: 'bg-emerald-50 text-emerald-600',
-    cancelled: 'bg-stone-100 text-stone-500',
-  };
+  const hasReview = (order.reviewIds || []).length > 0;
+  const refund = refundRequests.find(r => r.orderId === order.id);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-5">
+    <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-5 cursor-pointer hover:shadow-md transition" onClick={() => onViewDetail(order)}>
       <div className="flex items-center justify-between mb-4">
         <div className="text-xs text-stone-500">
           订单号：{order.id.slice(0, 8)}...
         </div>
-        <span className={`px-3 py-1 rounded-xl text-xs font-semibold ${statusColor[order.status]}`}>
-          {statusText[order.status]}
+        <span className={`px-3 py-1 rounded-xl text-xs font-semibold ${ORDER_STATUS_COLOR[order.status]}`}>
+          {ORDER_STATUS_TEXT[order.status]}
         </span>
       </div>
 
@@ -1076,23 +1707,57 @@ function OrderCard({
           共 {order.items.reduce((sum, i) => sum + i.quantity, 0)} 件商品，
           <span className="text-rose-600 font-bold text-lg">¥{order.totalPrice}</span>
         </div>
+      </div>
+
+      <div className="flex gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+        {order.status === 'paid' && (
+          <button
+            onClick={() => onCancel(order.id)}
+            className="px-4 py-2 rounded-xl bg-stone-100 text-stone-600 text-sm font-medium hover:bg-stone-200 transition"
+          >
+            取消订单
+          </button>
+        )}
         {(order.status === 'paid' || order.status === 'shipped') && (
-          <div className="flex gap-2">
-            {order.status === 'paid' && (
-              <button
-                onClick={() => onCancel(order.id)}
-                className="px-4 py-2 rounded-xl bg-stone-100 text-stone-600 text-sm font-medium hover:bg-stone-200 transition"
-              >
-                取消订单
-              </button>
-            )}
-            <button
-              onClick={() => onComplete(order.id)}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-medium shadow-md shadow-emerald-500/25 hover:shadow-emerald-500/35 transition"
-            >
-              确认收货
-            </button>
-          </div>
+          <button
+            onClick={() => onComplete(order.id)}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-medium shadow-md shadow-emerald-500/25 hover:shadow-emerald-500/35 transition"
+          >
+            确认收货
+          </button>
+        )}
+        {order.status === 'completed' && !hasReview && (
+          <button
+            onClick={() => onReview(order)}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium shadow-md shadow-amber-500/25 hover:shadow-amber-500/35 transition flex items-center gap-1"
+          >
+            <Star size={14} fill="currentColor" />
+            评价
+          </button>
+        )}
+        {order.status === 'completed' && hasReview && (
+          <span className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-600 text-sm font-medium flex items-center gap-1">
+            <Check size={14} />
+            已评价
+          </span>
+        )}
+        {(order.status === 'paid' || order.status === 'shipped' || order.status === 'completed') && !refund && (
+          <button
+            onClick={() => onRefund(order)}
+            className="px-4 py-2 rounded-xl bg-rose-50 text-rose-600 text-sm font-medium hover:bg-rose-100 transition flex items-center gap-1"
+          >
+            <RotateCcw size={14} />
+            退款
+          </button>
+        )}
+        {refund && (
+          <button
+            onClick={() => onViewRefund(refund)}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-1 ${REFUND_STATUS_COLOR[refund.status]}`}
+          >
+            <RotateCcw size={14} />
+            {REFUND_STATUS_TEXT[refund.status]}
+          </button>
         )}
       </div>
     </div>
@@ -1129,6 +1794,67 @@ function EmptyState({
       </div>
       <h3 className="font-bold text-stone-700 mb-1">{title}</h3>
       <p className="text-sm text-stone-400">{desc}</p>
+    </div>
+  );
+}
+
+const ORDER_STATUS_TEXT: Record<string, string> = {
+  pending: '待支付',
+  paid: '已支付',
+  shipped: '已发货',
+  completed: '已完成',
+  cancelled: '已取消',
+};
+
+const ORDER_STATUS_COLOR: Record<string, string> = {
+  pending: 'bg-amber-50 text-amber-600',
+  paid: 'bg-sky-50 text-sky-600',
+  shipped: 'bg-violet-50 text-violet-600',
+  completed: 'bg-emerald-50 text-emerald-600',
+  cancelled: 'bg-stone-100 text-stone-500',
+};
+
+const REFUND_STATUS_TEXT: Record<string, string> = {
+  pending: '审核中',
+  approved: '已通过',
+  rejected: '已拒绝',
+  completed: '已退款',
+};
+
+const REFUND_STATUS_COLOR: Record<string, string> = {
+  pending: 'bg-amber-50 text-amber-600',
+  approved: 'bg-sky-50 text-sky-600',
+  rejected: 'bg-rose-50 text-rose-600',
+  completed: 'bg-emerald-50 text-emerald-600',
+};
+
+function ReviewItem({ review }: { review: Review }) {
+  return (
+    <div className="border-b border-stone-100 last:border-b-0 pb-4 last:pb-0">
+      <div className="flex items-center gap-3 mb-2">
+        <img
+          src={review.userAvatar}
+          alt={review.userName}
+          className="w-8 h-8 rounded-full bg-stone-100"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-stone-800">{review.userName}</div>
+          <div className="flex items-center gap-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                size={10}
+                className={star <= review.rating ? 'text-amber-400' : 'text-stone-200'}
+                fill={star <= review.rating ? 'currentColor' : 'none'}
+              />
+            ))}
+          </div>
+        </div>
+        <span className="text-xs text-stone-400">
+          {new Date(review.timestamp).toLocaleDateString('zh-CN')}
+        </span>
+      </div>
+      <p className="text-sm text-stone-600 pl-11">{review.content}</p>
     </div>
   );
 }

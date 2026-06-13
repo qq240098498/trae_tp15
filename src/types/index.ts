@@ -129,6 +129,32 @@ export interface Equipment {
   sales: number;
 }
 
+export interface Review {
+  id: string;
+  orderId: string;
+  equipmentId: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  rating: number;
+  content: string;
+  images: string[];
+  timestamp: number;
+}
+
+export type RefundStatus = 'pending' | 'approved' | 'rejected' | 'completed';
+
+export interface RefundRequest {
+  id: string;
+  orderId: string;
+  reason: string;
+  description: string;
+  status: RefundStatus;
+  refundAmount: number;
+  createdAt: number;
+  processedAt?: number;
+}
+
 export interface CartItem {
   equipmentId: string;
   quantity: number;
@@ -143,5 +169,7 @@ export interface Order {
   address?: string;
   phone?: string;
   receiver?: string;
+  reviewIds?: string[];
+  refundId?: string;
 }
 

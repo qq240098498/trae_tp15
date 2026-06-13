@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { SocialPost, UserProfile, WeightRecord, Comment, Gym, PurchasedMembership, Booking, GymMembership, Equipment, CartItem, Order } from '@/types';
+import { SocialPost, UserProfile, WeightRecord, Comment, Gym, PurchasedMembership, Booking, GymMembership, Equipment, CartItem, Order, Review, RefundRequest } from '@/types';
 import { daysAgo, generateId, todayStr, formatDate } from '@/utils';
 
 interface AppState {
@@ -32,6 +32,8 @@ interface AppState {
   equipment: Equipment[];
   cart: CartItem[];
   orders: Order[];
+  reviews: Review[];
+  refundRequests: RefundRequest[];
 
   addEquipment: (data: Omit<Equipment, 'id'>) => void;
   updateEquipment: (id: string, data: Partial<Omit<Equipment, 'id'>>) => void;
@@ -45,6 +47,12 @@ interface AppState {
   createOrder: (address?: string, phone?: string, receiver?: string) => void;
   cancelOrder: (orderId: string) => void;
   completeOrder: (orderId: string) => void;
+
+  addReview: (orderId: string, equipmentId: string, rating: number, content: string, images?: string[]) => void;
+  requestRefund: (orderId: string, reason: string, description: string) => void;
+  approveRefund: (refundId: string) => void;
+  rejectRefund: (refundId: string) => void;
+  completeRefund: (refundId: string) => void;
 
   resetToMock: () => void;
 }
@@ -434,6 +442,8 @@ export const useAppStore = create<AppState>()(
       equipment: INITIAL_EQUIPMENT,
       cart: [],
       orders: [],
+      reviews: [],
+      refundRequests: [],
 
       addWeightRecord: (data) =>
         set((s) => ({
@@ -652,6 +662,83 @@ export const useAppStore = create<AppState>()(
           ),
         })),
 
+      addReview: (orderId, equipmentId, rating, content, images = []) => {
+        const user = get().userProfile;
+        const review: Review = {
+          id: generateId(),
+          orderId,
+          equipmentId,
+          userId: user.id,
+          userName: user.name,
+          userAvatar: user.avatar,
+          rating,
+          content,
+          images,
+          timestamp: Date.now(),
+        };
+        set((s) => ({
+          reviews: [...s.reviews, review],
+          orders: s.orders.map((o) =>
+            o.id === orderId
+              ? { ...o, reviewIds: [...(o.reviewIds || []), review.id] }
+              : o,
+          ),
+          equipment: s.equipment.map((e) => {
+            if (e.id !== equipmentId) return e;
+            const allReviews = [...s.reviews, review].filter((r) => r.equipmentId === equipmentId);
+            const avg = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+            return { ...e, rating: Math.round(avg * 10) / 10, reviewCount: e.reviewCount + 1 };
+          }),
+        }));
+      },
+
+      requestRefund: (orderId, reason, description) => {
+        const order = get().orders.find((o) => o.id === orderId);
+        if (!order) return;
+        const refund: RefundRequest = {
+          id: generateId(),
+          orderId,
+          reason,
+          description,
+          status: 'pending',
+          refundAmount: order.totalPrice,
+          createdAt: Date.now(),
+        };
+        set((s) => ({
+          refundRequests: [...s.refundRequests, refund],
+          orders: s.orders.map((o) =>
+            o.id === orderId ? { ...o, refundId: refund.id } : o,
+          ),
+        }));
+      },
+
+      approveRefund: (refundId) =>
+        set((s) => ({
+          refundRequests: s.refundRequests.map((r) =>
+            r.id === refundId ? { ...r, status: 'approved' as const, processedAt: Date.now() } : r,
+          ),
+        })),
+
+      rejectRefund: (refundId) =>
+        set((s) => ({
+          refundRequests: s.refundRequests.map((r) =>
+            r.id === refundId ? { ...r, status: 'rejected' as const, processedAt: Date.now() } : r,
+          ),
+        })),
+
+      completeRefund: (refundId) => {
+        const refund = get().refundRequests.find((r) => r.id === refundId);
+        if (!refund) return;
+        set((s) => ({
+          refundRequests: s.refundRequests.map((r) =>
+            r.id === refundId ? { ...r, status: 'completed' as const, processedAt: Date.now() } : r,
+          ),
+          orders: s.orders.map((o) =>
+            o.id === refund.orderId ? { ...o, status: 'cancelled' as const } : o,
+          ),
+        }));
+      },
+
       resetToMock: () =>
         set({
           userProfile: MOCK_USER,
@@ -663,6 +750,8 @@ export const useAppStore = create<AppState>()(
           equipment: INITIAL_EQUIPMENT,
           cart: [],
           orders: [],
+          reviews: [],
+          refundRequests: [],
         }),
     }),
     { name: 'weight-app-v1' },
