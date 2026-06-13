@@ -96,6 +96,7 @@ export default function EquipmentShopPage() {
   const [refundReason, setRefundReason] = useState('');
   const [refundDescription, setRefundDescription] = useState('');
   const [selectedRefund, setSelectedRefund] = useState<RefundRequest | null>(null);
+  const [reviewFilter, setReviewFilter] = useState<'all' | 'good' | 'mid' | 'bad' | 'text'>('all');
 
   const filteredEquipment = useMemo(() => {
     let result = [...equipment];
@@ -330,30 +331,80 @@ export default function EquipmentShopPage() {
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-stone-100 p-6">
-            <h3 className="font-bold text-stone-800 mb-4 flex items-center gap-2">
-              <MessageSquare size={18} className="text-amber-500" />
-              用户评价
-              <span className="text-sm font-normal text-stone-400">({reviews.filter(r => r.equipmentId === selectedEquipment.id).length})</span>
-            </h3>
-            {reviews.filter(r => r.equipmentId === selectedEquipment.id).length === 0 ? (
-              <div className="text-center py-6">
-                <MessageSquare className="text-stone-200 mx-auto mb-2" size={32} />
-                <p className="text-sm text-stone-400">暂无评价，购买后即可评价</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {reviews.filter(r => r.equipmentId === selectedEquipment.id).slice(0, 5).map(review => (
-                  <ReviewItem key={review.id} review={review} />
-                ))}
-                {reviews.filter(r => r.equipmentId === selectedEquipment.id).length > 5 && (
-                  <div className="text-center">
-                    <button className="text-sm text-emerald-600 font-medium hover:underline">
-                      查看全部 {reviews.filter(r => r.equipmentId === selectedEquipment.id).length} 条评价
-                    </button>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-stone-800 flex items-center gap-2">
+                <MessageSquare size={18} className="text-amber-500" />
+                用户评价
+                <span className="text-sm font-normal text-stone-400">
+                  ({reviews.filter(r => r.equipmentId === selectedEquipment.id).length})
+                </span>
+              </h3>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-stone-100">
+              {[
+                { label: '全部', value: 'all' },
+                { label: '好评', value: 'good' },
+                { label: '中评', value: 'mid' },
+                { label: '差评', value: 'bad' },
+                { label: '有文字', value: 'text' },
+              ].map((tab) => {
+                const eqReviews = reviews.filter(r => r.equipmentId === selectedEquipment.id);
+                let count = eqReviews.length;
+                if (tab.value === 'good') count = eqReviews.filter(r => r.rating >= 4).length;
+                if (tab.value === 'mid') count = eqReviews.filter(r => r.rating === 3).length;
+                if (tab.value === 'bad') count = eqReviews.filter(r => r.rating <= 2).length;
+                if (tab.value === 'text') count = eqReviews.filter(r => r.content.trim().length > 0).length;
+
+                return (
+                  <button
+                    key={tab.value}
+                    onClick={() => setReviewFilter(tab.value as typeof reviewFilter)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition ${
+                      reviewFilter === tab.value
+                        ? 'bg-amber-500 text-white shadow-md shadow-amber-500/25'
+                        : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200'
+                    }`}
+                  >
+                    {tab.label}
+                    {count > 0 && <span className="ml-1 opacity-75">({count})</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            {(() => {
+              const eqReviews = reviews.filter(r => r.equipmentId === selectedEquipment.id);
+              let filtered = eqReviews;
+              if (reviewFilter === 'good') filtered = eqReviews.filter(r => r.rating >= 4);
+              if (reviewFilter === 'mid') filtered = eqReviews.filter(r => r.rating === 3);
+              if (reviewFilter === 'bad') filtered = eqReviews.filter(r => r.rating <= 2);
+              if (reviewFilter === 'text') filtered = eqReviews.filter(r => r.content.trim().length > 0);
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="text-center py-6">
+                    <MessageSquare className="text-stone-200 mx-auto mb-2" size={32} />
+                    <p className="text-sm text-stone-400">暂无该类型评价</p>
                   </div>
-                )}
-              </div>
-            )}
+                );
+              }
+
+              return (
+                <div className="space-y-4">
+                  {filtered.slice(0, 5).map(review => (
+                    <ReviewItem key={review.id} review={review} />
+                  ))}
+                  {filtered.length > 5 && (
+                    <div className="text-center">
+                      <button className="text-sm text-emerald-600 font-medium hover:underline">
+                        查看全部 {filtered.length} 条评价
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           <div className="flex gap-3 sticky bottom-4 bg-white/95 backdrop-blur-xl rounded-3xl p-3 border border-stone-200 shadow-lg">
